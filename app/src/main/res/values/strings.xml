@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MusicPlayer</string>
+    <string name="library">本地音乐</string>
+    <string name="playlist">歌单</string>
+    <string name="favorites">我的收藏</string>
+    <string name="now_playing">正在播放</string>
+    <string name="no_music">暂无音乐</string>
+    <string name="scan_music">扫描音乐</string>
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="previous">上一曲</string>
+    <string name="next">下一曲</string>
+    <string name="like">喜欢</string>
+    <string name="unlike">取消喜欢</string>
+    <string name="all_songs">全部歌曲</string>
+    <string name="unknown_artist">未知艺术家</string>
+    <string name="unknown_album">未知专辑</string>
+    <string name="grant_permission">请授予存储权限以扫描本地音乐</string>
+    <string name="notification_channel_name">音乐播放</string>
+    <string name="notification_channel_desc">显示当前播放的音乐</string>
+</resources>
