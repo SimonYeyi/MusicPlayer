@@ -28,6 +28,7 @@ fun LibraryScreen(
     onSongClick: (Song, Int) -> Unit,
     onFavoriteClick: (Song) -> Unit,
     onPopularClick: (Song) -> Unit,
+    onAddToPlaylistClick: (Song) -> Unit,
     onScanClick: () -> Unit,
     isScanning: Boolean,
     viewModel: PlayerViewModel

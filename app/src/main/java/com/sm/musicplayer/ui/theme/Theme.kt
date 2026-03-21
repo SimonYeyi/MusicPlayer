@@ -11,37 +11,44 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PlayerPrimary,
-    secondary = PlayerSecondary,
-    tertiary = Pink80,
-    background = PlayerBackground,
-    surface = PlayerSurface,
-    onPrimary = PlayerOnPrimary,
-    onSecondary = PlayerOnPrimary,
-    onTertiary = PlayerOnPrimary,
-    onBackground = PlayerOnPrimary,
-    onSurface = PlayerOnPrimary
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = PlayerPrimary,
-    secondary = PlayerSecondary,
-    tertiary = Pink40
-)
-
 @Composable
 fun MusicPlayerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    moodTheme: MoodTheme = MoodTheme.PASSION_RED,
+    isDarkMode: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colors = getMoodColors(moodTheme)
+    
+    val colorScheme = if (isDarkMode) {
+        darkColorScheme(
+            primary = colors.primary,
+            secondary = colors.secondary,
+            tertiary = colors.accent,
+            background = colors.background,
+            surface = colors.surface,
+            onPrimary = colors.onPrimary,
+            onSecondary = colors.onPrimary,
+            onTertiary = colors.onPrimary,
+            onBackground = colors.onBackground,
+            onSurface = colors.onSurface
+        )
+    } else {
+        lightColorScheme(
+            primary = colors.primary,
+            secondary = colors.secondary,
+            tertiary = colors.accent,
+            onPrimary = colors.onPrimary,
+            onSecondary = colors.onPrimary,
+            onTertiary = colors.onPrimary
+        )
+    }
+    
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = colors.primary.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDarkMode
         }
     }
 

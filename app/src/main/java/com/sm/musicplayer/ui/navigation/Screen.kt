@@ -1,9 +1,12 @@
 package com.sm.musicplayer.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LibraryMusic
@@ -51,6 +54,29 @@ sealed class Screen(
         selectedIcon = Icons.Filled.LibraryMusic,
         unselectedIcon = Icons.Outlined.LibraryMusic
     )
+
+    data object Settings : Screen(
+        route = "settings",
+        title = "设置",
+        selectedIcon = Icons.Filled.Settings,
+        unselectedIcon = Icons.Filled.Settings
+    )
+
+    data object Search : Screen(
+        route = "search",
+        title = "搜索",
+        selectedIcon = Icons.Filled.Search,
+        unselectedIcon = Icons.Filled.Search
+    )
+
+    data object PlaylistDetail : Screen(
+        route = "playlist/{playlistId}",
+        title = "歌单详情",
+        selectedIcon = Icons.Filled.QueueMusic,
+        unselectedIcon = Icons.Outlined.QueueMusic
+    ) {
+        fun createRoute(playlistId: Long) = "playlist/$playlistId"
+    }
 }
 
 val bottomNavItems = listOf(

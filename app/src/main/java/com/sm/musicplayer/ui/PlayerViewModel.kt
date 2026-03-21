@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.sm.musicplayer.domain.model.PlayerState
 import com.sm.musicplayer.domain.model.Playlist
 import com.sm.musicplayer.domain.model.Song
+import com.sm.musicplayer.domain.repository.PlaylistRepository
+import com.sm.musicplayer.domain.repository.SongRepository
 import com.sm.musicplayer.domain.usecase.*
 import com.sm.musicplayer.service.PlayerController
+import com.sm.musicplayer.ui.theme.MoodTheme
+import com.sm.musicplayer.ui.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -25,7 +29,10 @@ class PlayerViewModel @Inject constructor(
     private val createPlaylistUseCase: CreatePlaylistUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val togglePopularUseCase: TogglePopularUseCase,
-    private val scanLocalMusicUseCase: ScanLocalMusicUseCase
+    private val scanLocalMusicUseCase: ScanLocalMusicUseCase,
+    private val songRepository: SongRepository,
+    private val playlistRepository: PlaylistRepository,
+    private val themeManager: ThemeManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MusicPlayerUiState())
@@ -54,6 +61,21 @@ class PlayerViewModel @Inject constructor(
 
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
+
+    val currentMoodTheme: StateFlow<MoodTheme> = themeManager.currentMoodTheme
+        .stateIn(viewModelScope, SharingStarted.Lazily, MoodTheme.PASSION_RED)
+
+    val isDarkMode: StateFlow<Boolean> = themeManager.isDarkMode
+        .stateIn(viewModelScope, SharingStarted.Lazily, true)
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<Song>>(emptyList())
+    val searchResults: StateFlow<List<Song>> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
     init {
         playerController.initialize()
@@ -152,11 +174,79 @@ class PlayerViewModel @Inject constructor(
     fun hideFullPlayer() {
         _uiState.value = _uiState.value.copy(showFullPlayer = false)
     }
+
+    fun setMoodTheme(theme: MoodTheme) {
+        viewModelScope.launch {
+            themeManager.setMoodTheme(theme)
+        }
+    }
+
+    fun setDarkMode(isDark: Boolean) {
+        viewModelScope.launch {
+            themeManager.setDarkMode(isDark)
+        }
+    }
+
+    fun search(query: String) {
+        _searchQuery.value = query
+        if (query.isBlank()) {
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+            return
+        }
+        _isSearching.value = true
+        viewModelScope.launch {
+            val results = songs.value.filter { song ->
+                song.title.contains(query, ignoreCase = true) ||
+                song.artist.contains(query, ignoreCase = true) ||
+                song.album.contains(query, ignoreCase = true)
+            }
+            _searchResults.value = results
+            _isSearching.value = false
+        }
+    }
+
+    fun clearSearch() {
+        _searchQuery.value = ""
+        _searchResults.value = emptyList()
+        _isSearching.value = false
+    }
+
+    fun addSongToPlaylist(playlistId: Long, songId: Long) {
+        viewModelScope.launch {
+            playlistRepository.addSongToPlaylist(playlistId, songId)
+        }
+    }
+
+    fun removeSongFromPlaylist(playlistId: Long, songId: Long) {
+        viewModelScope.launch {
+            playlistRepository.removeSongFromPlaylist(playlistId, songId)
+        }
+    }
+
+    fun deletePlaylist(playlist: Playlist) {
+        viewModelScope.launch {
+            playlistRepository.deletePlaylist(playlist)
+        }
+    }
+
+    fun getPlaylistWithSongs(playlistId: Long): Flow<Playlist?> {
+        return playlistRepository.getPlaylistWithSongs(playlistId)
+    }
+
+    fun showSettings() {
+        _uiState.value = _uiState.value.copy(showSettings = true)
+    }
+
+    fun hideSettings() {
+        _uiState.value = _uiState.value.copy(showSettings = false)
+    }
 }
 
 data class MusicPlayerUiState(
     val isScanning: Boolean = false,
     val showMiniPlayer: Boolean = false,
     val showFullPlayer: Boolean = false,
+    val showSettings: Boolean = false,
     val currentTab: Int = 0
 )
