@@ -8,20 +8,31 @@ import com.sm.musicplayer.domain.model.Playlist
 import com.sm.musicplayer.domain.model.Song
 import com.sm.musicplayer.domain.repository.PlaylistRepository
 import com.sm.musicplayer.domain.repository.SongRepository
-import com.sm.musicplayer.domain.usecase.*
+import com.sm.musicplayer.domain.usecase.CreatePlaylistUseCase
+import com.sm.musicplayer.domain.usecase.GetAllPlaylistsUseCase
+import com.sm.musicplayer.domain.usecase.GetAllSongsUseCase
+import com.sm.musicplayer.domain.usecase.GetFavoriteSongsUseCase
+import com.sm.musicplayer.domain.usecase.GetPopularSongsUseCase
+import com.sm.musicplayer.domain.usecase.ScanLocalMusicUseCase
+import com.sm.musicplayer.domain.usecase.ToggleFavoriteUseCase
+import com.sm.musicplayer.domain.usecase.TogglePopularUseCase
 import com.sm.musicplayer.service.PlayerController
 import com.sm.musicplayer.ui.theme.MoodTheme
 import com.sm.musicplayer.ui.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val playerController: PlayerController,
+    private val playbackViewModel: PlaybackViewModel,
     private val getAllSongsUseCase: GetAllSongsUseCase,
     private val getFavoriteSongsUseCase: GetFavoriteSongsUseCase,
     private val getPopularSongsUseCase: GetPopularSongsUseCase,
@@ -38,8 +49,7 @@ class PlayerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MusicPlayerUiState())
     val uiState: StateFlow<MusicPlayerUiState> = _uiState.asStateFlow()
 
-    private val _playerState = MutableStateFlow(PlayerState())
-    val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
+    val playerState: StateFlow<PlayerState> = playbackViewModel.playerState
 
     val songs: StateFlow<List<Song>> = getAllSongsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -53,14 +63,10 @@ class PlayerViewModel @Inject constructor(
     val playlists: StateFlow<List<Playlist>> = getAllPlaylistsUseCase()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val currentSong: StateFlow<Song?> = playerController.currentSong
-    val isPlaying: StateFlow<Boolean> = playerController.isPlaying
-
-    private val _currentPosition = MutableStateFlow(0L)
-    val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
-
-    private val _duration = MutableStateFlow(0L)
-    val duration: StateFlow<Long> = _duration.asStateFlow()
+    val currentSong: StateFlow<Song?> = playbackViewModel.currentSong
+    val isPlaying: StateFlow<Boolean> = playbackViewModel.isPlaying
+    val currentPosition: StateFlow<Long> = playbackViewModel.currentPosition
+    val duration: StateFlow<Long> = playbackViewModel.duration
 
     val currentMoodTheme: StateFlow<MoodTheme> = themeManager.currentMoodTheme
         .stateIn(viewModelScope, SharingStarted.Lazily, MoodTheme.PASSION_RED)
@@ -77,64 +83,36 @@ class PlayerViewModel @Inject constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
-    init {
-        playerController.initialize()
-        startPositionUpdater()
-        
-        viewModelScope.launch {
-            combine(currentSong, isPlaying) { song, playing ->
-                song to playing
-            }.collect { (song, playing) ->
-                _playerState.value = _playerState.value.copy(
-                    currentSong = song,
-                    isPlaying = playing
-                )
-            }
-        }
-    }
-
-    private fun startPositionUpdater() {
-        viewModelScope.launch {
-            while (isActive) {
-                if (playerController.isPlaying.value) {
-                    _currentPosition.value = playerController.getCurrentPosition()
-                    _duration.value = playerController.getDuration()
-                }
-                delay(200)
-            }
-        }
-    }
-
     fun playSong(song: Song) {
         val songList = songs.value
         val index = songList.indexOfFirst { it.id == song.id }
         if (index >= 0) {
-            playerController.playSongs(songList, index)
+            playbackViewModel.playSongs(songList, index)
         }
     }
 
     fun playSongs(songList: List<Song>, startIndex: Int = 0) {
-        playerController.playSongs(songList, startIndex)
+        playbackViewModel.playSongs(songList, startIndex)
     }
 
     fun playPause() {
-        playerController.playPause()
+        playbackViewModel.playPause()
     }
 
     fun skipToNext() {
-        playerController.skipToNext()
+        playbackViewModel.skipToNext()
     }
 
     fun skipToPrevious() {
-        playerController.skipToPrevious()
+        playbackViewModel.skipToPrevious()
     }
 
     fun seekTo(position: Long) {
-        playerController.seekTo(position)
+        playbackViewModel.seekTo(position)
     }
 
     fun seekToPercent(percent: Float) {
-        playerController.seekToPercent(percent)
+        playbackViewModel.seekToPercent(percent)
     }
 
     fun toggleFavorite(song: Song) {
@@ -234,12 +212,39 @@ class PlayerViewModel @Inject constructor(
         return playlistRepository.getPlaylistWithSongs(playlistId)
     }
 
-    fun showSettings() {
-        _uiState.value = _uiState.value.copy(showSettings = true)
+    fun setSelectedPlaylist(playlist: Playlist?) {
+        _uiState.value = _uiState.value.copy(selectedPlaylist = playlist)
     }
 
-    fun hideSettings() {
-        _uiState.value = _uiState.value.copy(showSettings = false)
+    fun setShowAddToPlaylistDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showAddToPlaylistDialog = show)
+    }
+
+    fun setSelectedSongForPlaylist(song: Song?) {
+        _uiState.value = _uiState.value.copy(selectedSongForPlaylist = song)
+    }
+
+    fun setShowSearch(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showSearch = show)
+    }
+
+    fun setShowPlaylistDetail(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showPlaylistDetail = show)
+    }
+
+    fun setShowSettings(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showSettings = show)
+    }
+
+    fun setCurrentTab(tab: Int) {
+        _uiState.value = _uiState.value.copy(currentTab = tab)
+    }
+
+    fun dismissAddToPlaylistDialog() {
+        _uiState.value = _uiState.value.copy(
+            showAddToPlaylistDialog = false,
+            selectedSongForPlaylist = null
+        )
     }
 }
 
@@ -248,5 +253,10 @@ data class MusicPlayerUiState(
     val showMiniPlayer: Boolean = false,
     val showFullPlayer: Boolean = false,
     val showSettings: Boolean = false,
-    val currentTab: Int = 0
+    val currentTab: Int = 0,
+    val selectedPlaylist: Playlist? = null,
+    val showAddToPlaylistDialog: Boolean = false,
+    val selectedSongForPlaylist: Song? = null,
+    val showSearch: Boolean = false,
+    val showPlaylistDetail: Boolean = false
 )

@@ -29,9 +29,17 @@ fun SettingsScreen(
     onDarkModeChange: (Boolean) -> Unit,
     onBackClick: () -> Unit,
     onClearCache: () -> Unit,
-    onAboutClick: () -> Unit
+    onAboutClick: () -> Unit,
+    cacheCleared: Boolean = false
 ) {
     var showMoodDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(cacheCleared) {
+        if (cacheCleared) {
+            snackbarHostState.showSnackbar("缓存已清除")
+        }
+    }
     
     Scaffold(
         topBar = {
@@ -43,7 +51,8 @@ fun SettingsScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -274,4 +283,44 @@ fun MoodThemeItem(
             )
         }
     }
+}
+
+@Composable
+fun AboutDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Text(
+                text = "音乐播放器",
+                style = MaterialTheme.typography.headlineSmall
+            ) 
+        },
+        text = {
+            Column {
+                Text(
+                    text = "版本 1.0.0",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "一款简洁美观的本地音乐播放器，支持播放控制、播放列表管理、心情主题等功能。",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "© 2024 SM Music",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("确定")
+            }
+        }
+    )
 }

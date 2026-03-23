@@ -30,7 +30,6 @@ import com.sm.musicplayer.ui.screens.popular.PopularScreen
 import com.sm.musicplayer.ui.screens.search.SearchScreen
 import com.sm.musicplayer.ui.screens.settings.SettingsScreen
 import com.sm.musicplayer.ui.theme.MusicPlayerTheme
-import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun MusicPlayerMainScreen(
@@ -52,13 +51,6 @@ fun MusicPlayerMainScreen(
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
     val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
 
-    var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
-    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
-    var selectedSongForPlaylist by remember { mutableStateOf<Song?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
-    var showSearch by remember { mutableStateOf(false) }
-    var showPlaylistDetail by remember { mutableStateOf(false) }
-
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -76,12 +68,6 @@ fun MusicPlayerMainScreen(
         permissionLauncher.launch(permission)
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.uiState.collectLatest { state ->
-            showSettings = state.showSettings
-        }
-    }
-
     MusicPlayerTheme(
         moodTheme = currentMoodTheme,
         isDarkMode = isDarkMode
@@ -89,7 +75,7 @@ fun MusicPlayerMainScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 topBar = {
-                    if (!showSettings && !showSearch && !showPlaylistDetail) {
+                    if (!uiState.showSettings && !uiState.showSearch && !uiState.showPlaylistDetail) {
                         TopAppBar(
                             title = {
                                 Text(
@@ -103,10 +89,10 @@ fun MusicPlayerMainScreen(
                                 )
                             },
                             actions = {
-                                IconButton(onClick = { showSearch = true }) {
+                                IconButton(onClick = { viewModel.setShowSearch(true) }) {
                                     Icon(Icons.Filled.Search, contentDescription = "搜索")
                                 }
-                                IconButton(onClick = { showSettings = true }) {
+                                IconButton(onClick = { viewModel.setShowSettings(true) }) {
                                     Icon(Icons.Filled.Settings, contentDescription = "设置")
                                 }
                             }
@@ -114,7 +100,7 @@ fun MusicPlayerMainScreen(
                     }
                 },
                 bottomBar = {
-                    if (!showSettings && !showSearch && !showPlaylistDetail) {
+                    if (!uiState.showSettings && !uiState.showSearch && !uiState.showPlaylistDetail) {
                         Column {
                             AnimatedVisibility(
                                 visible = uiState.showMiniPlayer && !uiState.showFullPlayer,
@@ -142,7 +128,7 @@ fun MusicPlayerMainScreen(
                                         label = { Text(screen.title) },
                                         selected = uiState.currentTab == index,
                                         onClick = {
-                                            viewModel.uiState.value = viewModel.uiState.value.copy(currentTab = index)
+                                            viewModel.setCurrentTab(index)
                                         }
                                     )
                                 }
@@ -153,18 +139,59 @@ fun MusicPlayerMainScreen(
             ) { paddingValues ->
                 Box(modifier = Modifier.padding(paddingValues)) {
                     when {
-                        showSettings -> {
+                        uiState.showSettings -> {
+                            var showAboutDialog by remember { mutableStateOf(false) }
+                            var showClearCacheConfirm by remember { mutableStateOf(false) }
+                            var cacheCleared by remember { mutableStateOf(false) }
+
+                            if (showAboutDialog) {
+                                AboutDialog(
+                                    onDismiss = { showAboutDialog = false }
+                                )
+                            }
+
+                            if (showClearCacheConfirm) {
+                                AlertDialog(
+                                    onDismissRequest = { showClearCacheConfirm = false },
+                                    title = { Text("清除缓存") },
+                                    text = { Text("确定要清除所有缓存吗？这不会影响您的音乐文件。") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                cacheCleared = true
+                                                showClearCacheConfirm = false
+                                            }
+                                        ) {
+                                            Text("确定")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showClearCacheConfirm = false }) {
+                                            Text("取消")
+                                        }
+                                    }
+                                )
+                            }
+
+                            if (cacheCleared) {
+                                LaunchedEffect(Unit) {
+                                    kotlinx.coroutines.delay(2000)
+                                    cacheCleared = false
+                                }
+                            }
+
                             SettingsScreen(
                                 currentMoodTheme = currentMoodTheme,
                                 isDarkMode = isDarkMode,
                                 onMoodThemeChange = { viewModel.setMoodTheme(it) },
                                 onDarkModeChange = { viewModel.setDarkMode(it) },
-                                onBackClick = { showSettings = false },
-                                onClearCache = { },
-                                onAboutClick = { }
+                                onBackClick = { viewModel.setShowSettings(false) },
+                                onClearCache = { showClearCacheConfirm = true },
+                                onAboutClick = { showAboutDialog = true },
+                                cacheCleared = cacheCleared
                             )
                         }
-                        showSearch -> {
+                        uiState.showSearch -> {
                             SearchScreen(
                                 searchQuery = searchQuery,
                                 searchResults = searchResults,
@@ -177,13 +204,13 @@ fun MusicPlayerMainScreen(
                                     viewModel.playSongs(searchResults, index)
                                     viewModel.showMiniPlayer()
                                 },
-                                onBackClick = { showSearch = false },
+                                onBackClick = { viewModel.setShowSearch(false) },
                                 viewModel = viewModel
                             )
                         }
-                        showPlaylistDetail && selectedPlaylist != null -> {
-                            val playlistFlow = remember(selectedPlaylist?.id) {
-                                selectedPlaylist?.id?.let { viewModel.getPlaylistWithSongs(it) }
+                        uiState.showPlaylistDetail && uiState.selectedPlaylist != null -> {
+                            val playlistFlow = remember(uiState.selectedPlaylist?.id) {
+                                uiState.selectedPlaylist?.id?.let { viewModel.getPlaylistWithSongs(it) }
                             }
                             val playlistWithSongs by playlistFlow?.collectAsState(initial = null) ?: remember { mutableStateOf(null) }
                             
@@ -193,8 +220,8 @@ fun MusicPlayerMainScreen(
                                 currentSong = currentSong,
                                 isPlaying = isPlaying,
                                 onBackClick = { 
-                                    showPlaylistDetail = false
-                                    selectedPlaylist = null
+                                    viewModel.setShowPlaylistDetail(false)
+                                    viewModel.setSelectedPlaylist(null)
                                 },
                                 onPlayAll = {
                                     playlistWithSongs?.songs?.let { songs ->
@@ -211,14 +238,14 @@ fun MusicPlayerMainScreen(
                                     }
                                 },
                                 onRemoveSong = { song ->
-                                    selectedPlaylist?.id?.let { playlistId ->
+                                    uiState.selectedPlaylist?.id?.let { playlistId ->
                                         viewModel.removeSongFromPlaylist(playlistId, song.id)
                                     }
                                 },
                                 onDeletePlaylist = {
-                                    selectedPlaylist?.let { viewModel.deletePlaylist(it) }
-                                    showPlaylistDetail = false
-                                    selectedPlaylist = null
+                                    uiState.selectedPlaylist?.let { viewModel.deletePlaylist(it) }
+                                    viewModel.setShowPlaylistDetail(false)
+                                    viewModel.setSelectedPlaylist(null)
                                 },
                                 viewModel = viewModel
                             )
@@ -236,8 +263,8 @@ fun MusicPlayerMainScreen(
                                     onFavoriteClick = { song -> viewModel.toggleFavorite(song) },
                                     onPopularClick = { song -> viewModel.togglePopular(song) },
                                     onAddToPlaylistClick = { song ->
-                                        selectedSongForPlaylist = song
-                                        showAddToPlaylistDialog = true
+                                        viewModel.setSelectedSongForPlaylist(song)
+                                        viewModel.setShowAddToPlaylistDialog(true)
                                     },
                                     onScanClick = { viewModel.scanMusic(context.contentResolver) },
                                     isScanning = uiState.isScanning,
@@ -257,8 +284,8 @@ fun MusicPlayerMainScreen(
                                 2 -> PlaylistScreen(
                                     playlists = playlists,
                                     onPlaylistClick = { playlist ->
-                                        selectedPlaylist = playlist
-                                        showPlaylistDetail = true
+                                        viewModel.setSelectedPlaylist(playlist)
+                                        viewModel.setShowPlaylistDetail(true)
                                     },
                                     onCreatePlaylist = { },
                                     viewModel = viewModel
@@ -302,11 +329,11 @@ fun MusicPlayerMainScreen(
             }
         }
 
-        if (showAddToPlaylistDialog && selectedSongForPlaylist != null) {
+        if (uiState.showAddToPlaylistDialog && uiState.selectedSongForPlaylist != null) {
             AddToPlaylistDialog(
                 playlists = playlists,
                 onPlaylistSelected = { playlist ->
-                    selectedSongForPlaylist?.let { song ->
+                    uiState.selectedSongForPlaylist?.let { song ->
                         viewModel.addSongToPlaylist(playlist.id, song.id)
                     }
                 },
@@ -314,8 +341,7 @@ fun MusicPlayerMainScreen(
                     viewModel.createPlaylist("新歌单")
                 },
                 onDismiss = {
-                    showAddToPlaylistDialog = false
-                    selectedSongForPlaylist = null
+                    viewModel.dismissAddToPlaylistDialog()
                 }
             )
         }

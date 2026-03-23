@@ -114,9 +114,14 @@ class PlayerController @Inject constructor(
         mediaController?.seekTo(position)
     }
 
-    fun seekToPercent(percent: Float) {
-        val position = (mediaController?.duration ?: 0L) * percent.toLong()
+    fun seekToPercent(percent: Float): Boolean {
+        val duration = mediaController?.duration ?: 0L
+        if (duration <= 0 || percent < 0f || percent > 1f) {
+            return false
+        }
+        val position = duration * percent.toLong()
         seekTo(position)
+        return true
     }
 
     fun getCurrentPosition(): Long {
