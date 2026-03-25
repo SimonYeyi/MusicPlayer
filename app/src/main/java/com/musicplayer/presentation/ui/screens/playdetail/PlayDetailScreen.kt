@@ -37,9 +37,8 @@ import coil.request.ImageRequest
 import com.musicplayer.R
 import com.musicplayer.domain.model.PlayMode
 import com.musicplayer.domain.model.Song
+import com.musicplayer.presentation.ui.components.PlaylistPickerDialog
 import com.musicplayer.presentation.ui.components.formatDuration
-import com.musicplayer.presentation.ui.screens.mymusic.CreatePlaylistDialog
-import com.musicplayer.presentation.ui.screens.mymusic.SelectPlaylistDialog
 import com.musicplayer.presentation.viewmodel.MusicViewModel
 import coil.compose.SubcomposeAsyncImage
 import kotlinx.coroutines.delay
@@ -69,7 +68,6 @@ fun PlayDetailScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
     var showSelectPlaylistDialog by remember { mutableStateOf(false) }
-    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // 播放队列滚动状态（始终在树中保持滚动位置）
@@ -409,36 +407,22 @@ fun PlayDetailScreen(
         )
     }
 
-    // --- 添加到歌单对话框 ---
+    // --- 添加到歌单对话框（选择/新建统一） ---
     if (showSelectPlaylistDialog) {
-        SelectPlaylistDialog(
+        PlaylistPickerDialog(
             playlists = uiState.playlists,
             onDismiss = { showSelectPlaylistDialog = false },
             onPlaylistSelected = { playlistId ->
                 currentSong?.let { song ->
                     viewModel.addToPlaylist(playlistId, song.id)
                 }
-                showSelectPlaylistDialog = false
             },
-            onCreateClick = {
-                showSelectPlaylistDialog = false
-                showCreatePlaylistDialog = true
-            }
-        )
-    }
-
-    // --- 创建歌单对话框 ---
-    if (showCreatePlaylistDialog) {
-        CreatePlaylistDialog(
-            onDismiss = { showCreatePlaylistDialog = false },
-            onCreate = { name ->
-                scope.launch {
-                    val playlistId = viewModel.createPlaylist(name)
-                    currentSong?.let { song ->
-                        viewModel.addToPlaylist(playlistId, song.id)
-                    }
-                    showCreatePlaylistDialog = false
+            onPlaylistCreated = { name ->
+                val newId = viewModel.createPlaylist(name)
+                currentSong?.let { song ->
+                    viewModel.addToPlaylist(newId, song.id)
                 }
+                newId
             }
         )
     }

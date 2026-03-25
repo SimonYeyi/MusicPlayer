@@ -24,15 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import com.musicplayer.R
 import com.musicplayer.domain.model.Song
 import com.musicplayer.presentation.ui.components.AlbumArtImage
+import com.musicplayer.presentation.ui.components.PlaylistPickerDialog
 import com.musicplayer.presentation.ui.components.formatDuration
-import com.musicplayer.presentation.ui.screens.mymusic.CreatePlaylistDialog
-import com.musicplayer.presentation.ui.screens.mymusic.SelectPlaylistDialog
 import com.musicplayer.presentation.viewmodel.MusicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,10 +52,9 @@ fun PlaylistScreen(
     var selectedSongIds by remember { mutableStateOf(setOf<Long>()) }
 
     // 弹框状态
-    var showMoveDialog by remember { mutableStateOf(false) }
     var showRemoveConfirm by remember { mutableStateOf(false) }
     var showDeletePlaylistConfirm by remember { mutableStateOf(false) }
-    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var showMoveDialog by remember { mutableStateOf(false) }
     var lastMovedToPlaylist by remember { mutableStateOf<Pair<Long, String>?>(null) }
 
     LaunchedEffect(playlistId) {
@@ -319,15 +315,15 @@ fun PlaylistScreen(
         )
     }
 
-    // 选择目标歌单对话框
+    // 移动歌曲到目标歌单（选择/新建统一对话框）
     if (showMoveDialog) {
-        val otherPlaylists = uiState.playlists.filter { it.id != playlistId }
-        SelectPlaylistDialog(
-            playlists = otherPlaylists,
+        PlaylistPickerDialog(
+            playlists = uiState.playlists,
             title = "移动到",
+            excludedPlaylistIds = setOf(playlistId),
             onDismiss = { showMoveDialog = false },
             onPlaylistSelected = { targetPlaylistId ->
-                val targetPlaylist = otherPlaylists.find { it.id == targetPlaylistId }
+                val targetPlaylist = uiState.playlists.find { it.id == targetPlaylistId }
                 val songIdsToMove = selectedSongIds.toList()
                 viewModel.moveSongsToPlaylist(playlistId, targetPlaylistId, songIdsToMove)
                 playlistSongs = playlistSongs.filter { it.id !in songIdsToMove }
@@ -339,31 +335,18 @@ fun PlaylistScreen(
                     showDeletePlaylistConfirm = true
                 }
             },
-            onCreateClick = { showCreatePlaylistDialog = true }
-        )
-    }
-
-    // 创建歌单对话框
-    if (showCreatePlaylistDialog) {
-        val lifecycleOwner = LocalLifecycleOwner.current
-        CreatePlaylistDialog(
-            onDismiss = { showCreatePlaylistDialog = false },
-            onCreate = { name ->
-                lifecycleOwner.lifecycleScope.launch {
-                    val newPlaylistId = viewModel.createPlaylist(name)
-                    showCreatePlaylistDialog = false
-                    // 创建完成后视为选中该歌单，完成歌曲迁移
-                    val songIdsToMove = selectedSongIds.toList()
-                    viewModel.moveSongsToPlaylist(playlistId, newPlaylistId, songIdsToMove)
-                    playlistSongs = playlistSongs.filter { it.id !in songIdsToMove }
-                    isEditMode = false
-                    selectedSongIds = emptySet()
-                    showMoveDialog = false
-                    if (playlistSongs.isEmpty()) {
-                        lastMovedToPlaylist = Pair(newPlaylistId, name)
-                        showDeletePlaylistConfirm = true
-                    }
+            onPlaylistCreated = { name ->
+                val newPlaylistId = viewModel.createPlaylist(name)
+                val songIdsToMove = selectedSongIds.toList()
+                viewModel.moveSongsToPlaylist(playlistId, newPlaylistId, songIdsToMove)
+                playlistSongs = playlistSongs.filter { it.id !in songIdsToMove }
+                isEditMode = false
+                selectedSongIds = emptySet()
+                if (playlistSongs.isEmpty()) {
+                    lastMovedToPlaylist = Pair(newPlaylistId, name)
+                    showDeletePlaylistConfirm = true
                 }
+                newPlaylistId
             }
         )
     }

@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -46,12 +45,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Popup
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.musicplayer.R
 import com.musicplayer.domain.model.Song
 import com.musicplayer.presentation.ui.components.AlbumArtImage
+import com.musicplayer.presentation.ui.components.PlaylistPickerDialog
 import com.musicplayer.presentation.ui.components.formatDuration
 import com.musicplayer.presentation.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
@@ -67,7 +66,7 @@ fun MyMusicScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isSearchVisible by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    // songToAddToPlaylist 为 null 表示未显示对话框；为 0L 表示新建歌单模式（无目标歌曲）；> 0 表示添加指定歌曲 ID
     var songToAddToPlaylist by remember { mutableStateOf<Long?>(null) }
     var songToDelete by remember { mutableStateOf<Song?>(null) }
     var playlistToDelete by remember { mutableStateOf<Pair<Long, String>?>(null) }
@@ -295,7 +294,7 @@ fun MyMusicScreen(
                     3 -> PlaylistsTab(
                         playlists = uiState.playlists,
                         onPlaylistClick = { playlistId, playlistName -> onNavigateToPlaylist(playlistId, playlistName) },
-                        onCreatePlaylist = { showCreatePlaylistDialog = true },
+                        onCreatePlaylist = { songToAddToPlaylist = -1L },
                         onDeletePlaylist = { playlistId, playlistName -> playlistToDelete = playlistId to playlistName },
                         onRenamePlaylist = { playlistId, playlistName -> playlistToRename = playlistId to playlistName }
                     )
@@ -304,32 +303,29 @@ fun MyMusicScreen(
         }
     }
 
-    // 创建歌单对话框
-    if (showCreatePlaylistDialog) {
-        val lifecycleOwner = LocalLifecycleOwner.current
-        CreatePlaylistDialog(
-            onDismiss = { showCreatePlaylistDialog = false },
-            onCreate = { name ->
-                lifecycleOwner.lifecycleScope.launch {
-                    viewModel.createPlaylist(name)
-                    showCreatePlaylistDialog = false
-                }
-            }
-        )
-    }
-
-    // 选择歌单对话框
+    // 歌单选择/创建统一对话框
     if (songToAddToPlaylist != null) {
-        SelectPlaylistDialog(
+        PlaylistPickerDialog(
             playlists = uiState.playlists,
             onDismiss = { songToAddToPlaylist = null },
             onPlaylistSelected = { playlistId ->
                 songToAddToPlaylist?.let { songId ->
-                    viewModel.addToPlaylist(playlistId, songId)
+                    if (songId > 0) {
+                        viewModel.addToPlaylist(playlistId, songId)
+                    }
                 }
                 songToAddToPlaylist = null
             },
-            onCreateClick = { showCreatePlaylistDialog = true }
+            onPlaylistCreated = { name ->
+                val newId = viewModel.createPlaylist(name)
+                songToAddToPlaylist?.let { songId ->
+                    if (songId > 0) {
+                        viewModel.addToPlaylist(newId, songId)
+                    }
+                }
+                newId
+            },
+            title = if (songToAddToPlaylist == 0L) "新建歌单" else "添加到歌单"
         )
     }
 
@@ -959,50 +955,6 @@ fun SongListItem(
 }
 
 @Composable
-fun CreatePlaylistDialog(
-    onDismiss: () -> Unit,
-    onCreate: (String) -> Unit
-) {
-    var playlistName by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("创建歌单") },
-        text = {
-            OutlinedTextField(
-                value = playlistName,
-                onValueChange = { playlistName = it },
-                label = { Text("歌单名称") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onCreate(playlistName) },
-                enabled = playlistName.isNotBlank()
-            ) {
-                Text("创建")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
 fun DeleteSongDialog(
     song: Song,
     onDismiss: () -> Unit,
@@ -1105,71 +1057,3 @@ fun RenamePlaylistDialog(
     )
 }
 
-@Composable
-fun SelectPlaylistDialog(
-    playlists: List<com.musicplayer.data.local.PlaylistEntity>,
-    onDismiss: () -> Unit,
-    onPlaylistSelected: (Long) -> Unit,
-    title: String = "添加到歌单",
-    onCreateClick: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            LazyColumn {
-                // 最上方：新建歌单
-                item {
-                    ListItem(
-                        headlineContent = { Text("新建歌单") },
-                        leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        },
-                        modifier = Modifier.clickable { onCreateClick() }
-                    )
-                }
-                // 已有歌单列表
-                items(playlists) { playlist ->
-                    ListItem(
-                        headlineContent = { Text(playlist.name) },
-                        supportingContent = { Text("${playlist.songCount} 首歌曲") },
-                        leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.QueueMusic,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        },
-                        modifier = Modifier.clickable { onPlaylistSelected(playlist.id) }
-                    )
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
