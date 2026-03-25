@@ -185,6 +185,23 @@ fun PlayDetailScreen(
                                 },
                                 leadingIcon = { Icon(Icons.Default.PlaylistAdd, null) }
                             )
+                            DropdownMenuItem(
+                                text = {
+                                    val isFav = currentSong?.id in uiState.favoriteSongIds
+                                    Text(if (isFav) "取消收藏" else "收藏")
+                                },
+                                onClick = {
+                                    currentSong?.let { viewModel.toggleFavorite(it.id) }
+                                    showMoreMenu = false
+                                },
+                                leadingIcon = {
+                                    val isFav = currentSong?.id in uiState.favoriteSongIds
+                                    Icon(
+                                        if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        null
+                                    )
+                                }
+                            )
                         }
                     }
                 }
