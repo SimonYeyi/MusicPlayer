@@ -181,12 +181,21 @@ class MusicViewModel @Inject constructor(
                 _uiState.update { it.copy(playlists = playlists) }
             }
         }
+        // 监听所有歌单歌曲变化，同步到播放队列
+        viewModelScope.launch {
+            musicRepository.playlistSongsChanged.collect { (playlistId, songs) ->
+                musicService?.syncPlaylist(playlistId.toString(), songs)
+            }
+        }
     }
 
     private fun observeFavorites() {
         viewModelScope.launch {
             musicRepository.getFavoriteSongIds().collect { ids ->
                 _uiState.update { it.copy(favoriteSongIds = ids.toSet()) }
+                // 如果当前播放的是收藏列表，同步更新播放队列
+                val favoriteSongs = _uiState.value.songs.filter { ids.contains(it.id) }
+                musicService?.syncPlaylist("favorites", favoriteSongs)
             }
         }
     }
@@ -195,6 +204,9 @@ class MusicViewModel @Inject constructor(
         viewModelScope.launch {
             musicRepository.getRecentPlaySongIds().collect { ids ->
                 _uiState.update { it.copy(recentSongIds = ids) }
+                // 如果当前播放的是最近播放列表，同步更新播放队列
+                val recentSongs = ids.mapNotNull { id -> _uiState.value.songs.find { it.id == id } }
+                musicService?.syncPlaylist("recent", recentSongs)
             }
         }
     }
@@ -265,7 +277,7 @@ class MusicViewModel @Inject constructor(
     fun playSong(song: Song) {
         musicService?.let { service ->
             if (_uiState.value.songs.isNotEmpty()) {
-                service.setPlaylist(_uiState.value.songs)
+                service.setPlaylist(_uiState.value.songs, playlistId = "local")
                 // 如果已是当前歌曲且处于暂停状态，继续播放而非重新播放
                 if (service.playbackState.value.currentSong?.id == song.id && !service.playbackState.value.isPlaying) {
                     service.play()
@@ -276,10 +288,10 @@ class MusicViewModel @Inject constructor(
         }
     }
 
-    fun playSongs(songs: List<Song>, startSong: Song) {
+    fun playSongs(songs: List<Song>, startSong: Song, playlistId: String = "local") {
         musicService?.let { service ->
             if (songs.isNotEmpty()) {
-                service.setPlaylist(songs, startSong)
+                service.setPlaylist(songs, startSong, playlistId = playlistId)
                 val currentSongId = service.playbackState.value.currentSong?.id
                 val isPlaying = service.playbackState.value.isPlaying
                 val isSameSong = currentSongId == startSong.id
@@ -302,7 +314,7 @@ class MusicViewModel @Inject constructor(
     fun playSongsQuietly(songs: List<Song>, startSong: Song) {
         musicService?.let { service ->
             if (songs.isNotEmpty()) {
-                service.setPlaylist(songs, startSong, quiet = true)
+                service.setPlaylist(songs, startSong, quiet = true, playlistId = "recent")
                 val currentSongId = service.playbackState.value.currentSong?.id
                 val isPlaying = service.playbackState.value.isPlaying
                 val isSameSong = currentSongId == startSong.id
@@ -319,12 +331,11 @@ class MusicViewModel @Inject constructor(
 
     fun playPlaylist(playlistId: Long) {
         viewModelScope.launch {
-            musicRepository.getSongIdsInPlaylist(playlistId).first().let { songIds ->
-                val songs = musicRepository.getSongsByIds(songIds)
-                if (songs.isNotEmpty()) {
-                    musicService?.setPlaylist(songs)
-                    musicService?.playSong(songs.first())
-                }
+            val songIds = musicRepository.getSongIdsInPlaylistDirect(playlistId)
+            val songs = musicRepository.getSongsByIds(songIds)
+            if (songs.isNotEmpty()) {
+                musicService?.setPlaylist(songs, playlistId = playlistId.toString())
+                musicService?.playSong(songs.first())
             }
         }
     }
@@ -432,7 +443,8 @@ class MusicViewModel @Inject constructor(
 
     fun clearPlaylist(playlistId: Long) {
         viewModelScope.launch {
-            musicRepository.getSongIdsInPlaylist(playlistId).first().forEach { songId ->
+            val songIds = musicRepository.getSongIdsInPlaylistDirect(playlistId)
+            songIds.forEach { songId ->
                 musicRepository.removeSongFromPlaylist(playlistId, songId)
             }
         }
@@ -481,6 +493,21 @@ class MusicViewModel @Inject constructor(
     private fun savePinnedArtists(artists: Set<String>) {
         sharedPreferences.edit().putStringSet(KEY_PINNED_ARTISTS, artists).apply()
         _uiState.update { it.copy(pinnedArtists = artists) }
+        // 置顶艺术家变化时，重新计算排序并同步到播放队列
+        syncLocalMusicSortedPlaylist(artists)
+    }
+
+    private fun syncLocalMusicSortedPlaylist(pinnedArtists: Set<String>) {
+        val songs = _uiState.value.songs
+        if (songs.isEmpty()) return
+        val groupedSongs = songs.groupBy { it.artist }
+        val pinnedArtistsList = pinnedArtists.filter { groupedSongs.containsKey(it) }.toSet()
+        val unpinnedArtists = groupedSongs.keys.filter { !pinnedArtistsList.contains(it) }.sorted()
+        val sortedSongs: List<Song> = buildList {
+            pinnedArtistsList.forEach { artist -> groupedSongs[artist]?.let { addAll(it) } }
+            unpinnedArtists.forEach { artist -> groupedSongs[artist]?.let { addAll(it) } }
+        }
+        musicService?.syncPlaylist("local", sortedSongs)
     }
 
     // ===== 最近播放 =====

@@ -65,6 +65,9 @@ class MusicPlaybackService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionUpdateJob: Job? = null
 
+    // 当前播放列表的标识，用于判断列表数据变化是否需要同步到播放队列
+    private var currentPlaylistId: String? = null
+
     // 标志位：记录断连前是否在播放，用于重连后恢复（持久化到 SharedPreferences 以便 Service 被杀死后重建时能恢复）
     private var wasPlayingBeforeDeviceRemoval = false
     private lateinit var prefs: SharedPreferences
@@ -310,13 +313,32 @@ class MusicPlaybackService : Service() {
         }
     }
 
-    fun setPlaylist(songs: List<Song>, startSong: Song? = null, quiet: Boolean = false) {
+    fun setPlaylist(songs: List<Song>, startSong: Song? = null, quiet: Boolean = false, playlistId: String? = null) {
         _currentPlaylist.value = songs
+        currentPlaylistId = playlistId
         if (startSong != null) {
             val index = songs.indexOfFirst { it.id == startSong.id }
             currentIndex = if (index >= 0) index else 0
         }
         isQuietMode = quiet
+    }
+
+    // 同步播放列表：只有列表标识与当前播放的列表匹配时才更新
+    fun syncPlaylist(playlistId: String, songs: List<Song>) {
+        if (currentPlaylistId != playlistId) return
+        val currentSong = _playbackState.value.currentSong
+        // 如果同步过来的歌曲列表为空，但播放器中有正在显示的歌曲，保留这首歌
+        val finalSongs = if (songs.isEmpty() && currentSong != null) listOf(currentSong) else songs
+        _currentPlaylist.value = finalSongs
+        // 保持当前歌曲位置同步
+        if (currentSong != null) {
+            val index = finalSongs.indexOfFirst { it.id == currentSong.id }
+            if (index >= 0) {
+                currentIndex = index
+            }
+        }
+        // 刷新通知栏的上一曲下一曲按钮
+        updateNotification()
     }
 
     fun playSong(song: Song, quiet: Boolean = false) {

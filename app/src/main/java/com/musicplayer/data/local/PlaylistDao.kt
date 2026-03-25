@@ -27,6 +27,10 @@ interface PlaylistDao {
     @Query("SELECT songId FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt DESC")
     fun getSongIdsInPlaylist(playlistId: Long): Flow<List<Long>>
 
+    // 直接获取歌单中的歌曲ID列表（用于同步播放队列）
+    @Query("SELECT songId FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt DESC")
+    suspend fun getSongIdsInPlaylistDirect(playlistId: Long): List<Long>
+
     // 添加歌曲到歌单
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addSongToPlaylist(playlistSong: PlaylistSongEntity)

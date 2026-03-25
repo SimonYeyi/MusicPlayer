@@ -4,9 +4,13 @@ import android.content.ContentResolver
 import android.content.ContentUris
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.room.withTransaction
 import com.musicplayer.data.local.*
 import com.musicplayer.domain.model.Song
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -18,10 +22,21 @@ class MusicRepository @Inject constructor(
     private val songDao: SongDao,
     private val playlistDao: PlaylistDao,
     private val favoriteDao: FavoriteDao,
-    private val recentPlayDao: RecentPlayDao
+    private val recentPlayDao: RecentPlayDao,
+    private val database: MusicDatabase
 ) {
     companion object {
         const val USE_MOCK_DATA = false
+    }
+
+    // 歌单歌曲变化事件，所有歌单增删操作后主动 emit，供 Service 全局监听
+    private val _playlistSongsChanged = MutableSharedFlow<Pair<Long, List<Song>>>()
+    val playlistSongsChanged: SharedFlow<Pair<Long, List<Song>>> = _playlistSongsChanged.asSharedFlow()
+
+    private suspend fun emitPlaylistSongsChanged(playlistId: Long) {
+        val songIds = playlistDao.getSongIdsInPlaylistDirect(playlistId)
+        val songs = songDao.getAllSongs().first().filter { songIds.contains(it.id) }.map { it.toSong() }
+        _playlistSongsChanged.emit(playlistId to songs)
     }
 
     fun getAllSongs(): Flow<List<Song>> {
@@ -137,19 +152,32 @@ class MusicRepository @Inject constructor(
     fun getSongIdsInPlaylist(playlistId: Long): Flow<List<Long>> =
         playlistDao.getSongIdsInPlaylist(playlistId)
 
+    suspend fun getSongIdsInPlaylistDirect(playlistId: Long): List<Long> =
+        database.withTransaction {
+            playlistDao.getSongIdsInPlaylistDirect(playlistId)
+        }
+
     suspend fun getSongsForPlaylist(playlistId: Long): List<Song> {
-        val songIds = playlistDao.getSongIdsInPlaylist(playlistId).first()
-        return songDao.getAllSongs().first().filter { songIds.contains(it.id) }.map { it.toSong() }
+        return database.withTransaction {
+            val songIds = playlistDao.getSongIdsInPlaylistDirect(playlistId)
+            songDao.getAllSongs().first().filter { songIds.contains(it.id) }.map { it.toSong() }
+        }
     }
 
     suspend fun addSongToPlaylist(playlistId: Long, songId: Long) {
-        playlistDao.addSongToPlaylist(PlaylistSongEntity(playlistId = playlistId, songId = songId))
-        playlistDao.updateSongCount(playlistId)
+        database.withTransaction {
+            playlistDao.addSongToPlaylist(PlaylistSongEntity(playlistId = playlistId, songId = songId))
+            playlistDao.updateSongCount(playlistId)
+        }
+        emitPlaylistSongsChanged(playlistId)
     }
 
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: Long) {
-        playlistDao.removeSongFromPlaylist(playlistId, songId)
-        playlistDao.updateSongCount(playlistId)
+        database.withTransaction {
+            playlistDao.removeSongFromPlaylist(playlistId, songId)
+            playlistDao.updateSongCount(playlistId)
+        }
+        emitPlaylistSongsChanged(playlistId)
     }
 
     suspend fun isSongInPlaylist(playlistId: Long, songId: Long): Boolean =

@@ -266,7 +266,7 @@ fun MyMusicScreen(
                         favoriteIds = uiState.favoriteSongIds,
                         onSongClick = { song ->
                             val favoriteSongs = filteredSongs.filter { uiState.favoriteSongIds.contains(it.id) }
-                            viewModel.playSongs(favoriteSongs, song)
+                            viewModel.playSongs(favoriteSongs, song, playlistId = "favorites")
                         },
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },

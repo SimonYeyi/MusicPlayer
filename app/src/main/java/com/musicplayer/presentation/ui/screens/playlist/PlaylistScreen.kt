@@ -205,7 +205,7 @@ fun PlaylistScreen(
                             }
                         },
                         onClick = {
-                            viewModel.playSongs(playlistSongs, song)
+                            viewModel.playSongs(playlistSongs, song, playlistId = playlistId.toString())
                         },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                         onRemoveClick = { songToRemove = song.id },
