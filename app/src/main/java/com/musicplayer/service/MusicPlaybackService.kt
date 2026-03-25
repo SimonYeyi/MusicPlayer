@@ -1,16 +1,28 @@
 package com.musicplayer.service
 
+import android.content.SharedPreferences
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.provider.MediaStore
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -28,6 +40,7 @@ import com.musicplayer.data.repository.MusicRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 
 @AndroidEntryPoint
 class MusicPlaybackService : Service() {
@@ -52,6 +65,13 @@ class MusicPlaybackService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionUpdateJob: Job? = null
 
+    // 标志位：记录断连前是否在播放，用于重连后恢复（持久化到 SharedPreferences 以便 Service 被杀死后重建时能恢复）
+    private var wasPlayingBeforeDeviceRemoval = false
+    private lateinit var prefs: SharedPreferences
+
+    // 当前专辑封面 bitmap
+    private var currentAlbumArt: Bitmap? = null
+
     companion object {
         const val CHANNEL_ID = "music_playback_channel"
         const val NOTIFICATION_ID = 1
@@ -59,19 +79,82 @@ class MusicPlaybackService : Service() {
         const val ACTION_PAUSE = "com.musicplayer.ACTION_PAUSE"
         const val ACTION_NEXT = "com.musicplayer.ACTION_NEXT"
         const val ACTION_PREVIOUS = "com.musicplayer.ACTION_PREVIOUS"
+        private const val PREFS_NAME = "music_playback_prefs"
+        private const val KEY_WAS_PLAYING = "was_playing_before_removal"
     }
 
     inner class MusicBinder : Binder() {
         fun getService(): MusicPlaybackService = this@MusicPlaybackService
     }
 
+    // 音频设备回调：设备断开时暂停、重新连接时继续播放（API 31+）
+    private inner class AudioDeviceCallbackImpl : AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(devices: Array<out AudioDeviceInfo>) {
+            val isPlaying = _playbackState.value.isPlaying
+            if (isPlaying) {
+                wasPlayingBeforeDeviceRemoval = true
+                prefs.edit().putBoolean(KEY_WAS_PLAYING, true).apply()
+                pause()
+            }
+        }
+
+        override fun onAudioDevicesAdded(devices: Array<out AudioDeviceInfo>) {
+            if (wasPlayingBeforeDeviceRemoval) {
+                wasPlayingBeforeDeviceRemoval = false
+                prefs.edit().putBoolean(KEY_WAS_PLAYING, false).apply()
+                play()
+            }
+        }
+    }
+
+    // 音频断开广播：设备断开时暂停播放（API < 31）
+    private val audioNoisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                if (_playbackState.value.isPlaying) {
+                    wasPlayingBeforeDeviceRemoval = true
+                    prefs.edit().putBoolean(KEY_WAS_PLAYING, true).apply()
+                    pause()
+                }
+            }
+        }
+    }
+
+    private var audioDeviceCallback: AudioDeviceCallbackImpl? = null
+
     override fun onCreate() {
         super.onCreate()
         try {
+            prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             createNotificationChannel()
             setupMediaSession()
+            registerAudioCallbacks()
+            // 观察本地音乐列表变化，同步到通知栏播放列表
+            serviceScope.launch {
+                musicRepository.getAllSongs().collect { songs ->
+                    _currentPlaylist.value = songs
+                    // 列表首次加载时，显示第一首歌（不自动播放）
+                    if (songs.isNotEmpty() && _playbackState.value.currentSong == null) {
+                        val firstSong = songs.first()
+                        _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
+                        loadAlbumArt(firstSong.uri)
+                    }
+                }
+            }
+            // 检查是否需要恢复因蓝牙断连而暂停的播放（Service 重建时读取 SharedPreferences）
+            if (prefs.getBoolean(KEY_WAS_PLAYING, false)) {
+                wasPlayingBeforeDeviceRemoval = true
+                prefs.edit().putBoolean(KEY_WAS_PLAYING, false).apply()
+                // 延迟一小段时间确保 MediaPlayer 已准备好
+                serviceScope.launch {
+                    delay(200)
+                    if (wasPlayingBeforeDeviceRemoval) {
+                        wasPlayingBeforeDeviceRemoval = false
+                        play()
+                    }
+                }
+            }
         } catch (e: Exception) {
-            // Log error but don't crash
             e.printStackTrace()
         }
     }
@@ -79,14 +162,103 @@ class MusicPlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 立即启动前台服务，确保 Service 在后台持续运行
+        startForeground(NOTIFICATION_ID, createForegroundNotification())
+
+        // 检查是否需要恢复因蓝牙断连而暂停的播放（覆盖 onCreate 中可能遗漏的恢复）
+        if (prefs.getBoolean(KEY_WAS_PLAYING, false)) {
+            wasPlayingBeforeDeviceRemoval = true
+            prefs.edit().putBoolean(KEY_WAS_PLAYING, false).apply()
+            serviceScope.launch {
+                delay(200)
+                if (wasPlayingBeforeDeviceRemoval) {
+                    wasPlayingBeforeDeviceRemoval = false
+                    play()
+                }
+            }
+        }
+
         when (intent?.action) {
             ACTION_PLAY -> play()
             ACTION_PAUSE -> pause()
             ACTION_NEXT -> playNext()
             ACTION_PREVIOUS -> playPrevious()
         }
-        // Return STICKY to keep service running, but don't start foreground yet
         return START_STICKY
+    }
+
+    private fun createForegroundNotification(): android.app.Notification {
+        val state = _playbackState.value
+        val song = state.currentSong
+
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val playPauseAction = if (state.isPlaying) {
+            NotificationCompat.Action(
+                R.drawable.ic_launcher_foreground,
+                getString(R.string.pause),
+                createPendingIntent(ACTION_PAUSE)
+            )
+        } else {
+            NotificationCompat.Action(
+                R.drawable.ic_launcher_foreground,
+                getString(R.string.play),
+                createPendingIntent(ACTION_PLAY)
+            )
+        }
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(song?.title ?: getString(R.string.app_name))
+            .setContentText(song?.artist ?: "")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentIntent(pendingIntent)
+            .addAction(
+                R.drawable.ic_launcher_foreground,
+                getString(R.string.previous),
+                createPendingIntent(ACTION_PREVIOUS)
+            )
+            .addAction(playPauseAction)
+            .addAction(
+                R.drawable.ic_launcher_foreground,
+                getString(R.string.next),
+                createPendingIntent(ACTION_NEXT)
+            )
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setMediaSession(mediaSession?.sessionToken)
+            )
+            .setOngoing(state.isPlaying)
+
+        // 设置专辑封面
+        currentAlbumArt?.let { builder.setLargeIcon(it) }
+
+        return builder.build()
+    }
+
+    private fun registerAudioCallbacks() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioDeviceCallback = AudioDeviceCallbackImpl()
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback!!, null)
+        } else {
+            val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            registerReceiver(audioNoisyReceiver, filter)
+        }
+    }
+
+    private fun unregisterAudioCallbacks() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioDeviceCallback?.let { audioManager.unregisterAudioDeviceCallback(it) }
+        } else {
+            try {
+                unregisterReceiver(audioNoisyReceiver)
+            } catch (_: Exception) { }
+        }
     }
 
     private fun createNotificationChannel() {
@@ -183,6 +355,8 @@ class MusicPlaybackService : Service() {
                     isPlaying = true,
                     duration = mp.duration.toLong()
                 )
+                // 加载专辑封面并更新通知（使用音频文件 URI，MediaMetadataRetriever 会提取嵌入的封面）
+                loadAlbumArt(song.uri)
                 // 添加到最近播放（静默模式不更新）
                 if (!quiet) {
                     serviceScope.launch {
@@ -325,58 +499,70 @@ class MusicPlaybackService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-                return // Skip notification if permission not granted
+                return
             }
         }
-
-        val song = _playbackState.value.currentSong ?: return
-
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val playPauseAction = if (_playbackState.value.isPlaying) {
-            NotificationCompat.Action(
-                R.drawable.ic_launcher_foreground,
-                getString(R.string.pause),
-                createPendingIntent(ACTION_PAUSE)
-            )
-        } else {
-            NotificationCompat.Action(
-                R.drawable.ic_launcher_foreground,
-                getString(R.string.play),
-                createPendingIntent(ACTION_PLAY)
-            )
-        }
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(song.title)
-            .setContentText(song.artist)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentIntent(pendingIntent)
-            .addAction(
-                R.drawable.ic_launcher_foreground,
-                getString(R.string.previous),
-                createPendingIntent(ACTION_PREVIOUS)
-            )
-            .addAction(playPauseAction)
-            .addAction(
-                R.drawable.ic_launcher_foreground,
-                getString(R.string.next),
-                createPendingIntent(ACTION_NEXT)
-            )
-            .setStyle(
-                androidx.media.app.NotificationCompat.MediaStyle()
-                    .setMediaSession(mediaSession?.sessionToken)
-            )
-            .setOngoing(_playbackState.value.isPlaying)
-            .build()
-
+        val notification = createForegroundNotification()
         startForeground(NOTIFICATION_ID, notification)
+    }
+
+    private fun loadAlbumArt(audioUri: Uri) {
+        serviceScope.launch {
+            try {
+                val bitmap = extractAlbumArtFromAudio(audioUri)
+                if (bitmap != null) {
+                    // 缩放图片避免通知过大
+                    val scaled = Bitmap.createScaledBitmap(bitmap, 256, 256, true)
+                    if (scaled != bitmap) bitmap.recycle()
+                    currentAlbumArt = scaled
+                } else {
+                    currentAlbumArt = null
+                }
+            } catch (_: Exception) {
+                currentAlbumArt = null
+            }
+            // 无论是否有封面，都更新通知以刷新封面显示状态
+            updateNotification()
+        }
+    }
+
+    private fun extractAlbumArtFromAudio(audioUri: Uri): Bitmap? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                contentResolver.openFileDescriptor(audioUri, "r")?.use { pfd ->
+                    val retriever = MediaMetadataRetriever()
+                    retriever.setDataSource(pfd.fileDescriptor)
+                    val art = retriever.embeddedPicture?.let { bytes ->
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                    retriever.release()
+                    art
+                }
+            } else {
+                contentResolver.query(
+                    audioUri,
+                    arrayOf(MediaStore.MediaColumns.DATA),
+                    null, null, null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val path = cursor.getString(
+                            cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
+                        )
+                        if (path != null) {
+                            val retriever = MediaMetadataRetriever()
+                            retriever.setDataSource(path)
+                            val art = retriever.embeddedPicture?.let { bytes ->
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                            }
+                            retriever.release()
+                            art
+                        } else null
+                    } else null
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun createPendingIntent(action: String): PendingIntent {
@@ -428,6 +614,7 @@ class MusicPlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterAudioCallbacks()
         serviceScope.cancel()
         releaseMediaPlayer()
         mediaSession?.release()
