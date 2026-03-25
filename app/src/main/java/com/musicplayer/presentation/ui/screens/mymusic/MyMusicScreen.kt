@@ -328,7 +328,8 @@ fun MyMusicScreen(
                     viewModel.addToPlaylist(playlistId, songId)
                 }
                 songToAddToPlaylist = null
-            }
+            },
+            onCreateClick = { showCreatePlaylistDialog = true }
         )
     }
 
@@ -1110,41 +1111,57 @@ fun SelectPlaylistDialog(
     onDismiss: () -> Unit,
     onPlaylistSelected: (Long) -> Unit,
     title: String = "添加到歌单",
-    onCreateClick: (() -> Unit)? = null
+    onCreateClick: () -> Unit
 ) {
-    val isEmpty = playlists.isEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            if (isEmpty) {
-                Column {
-                    Text("暂无其他歌单，需要为你新建吗？")
+            LazyColumn {
+                // 最上方：新建歌单
+                item {
+                    ListItem(
+                        headlineContent = { Text("新建歌单") },
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable { onCreateClick() }
+                    )
                 }
-            } else {
-                LazyColumn {
-                    items(playlists) { playlist ->
-                        ListItem(
-                            headlineContent = { Text(playlist.name) },
-                            supportingContent = { Text("${playlist.songCount} 首歌曲") },
-                            leadingContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.QueueMusic,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            },
-                            modifier = Modifier.clickable { onPlaylistSelected(playlist.id) }
-                        )
-                    }
+                // 已有歌单列表
+                items(playlists) { playlist ->
+                    ListItem(
+                        headlineContent = { Text(playlist.name) },
+                        supportingContent = { Text("${playlist.songCount} 首歌曲") },
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.QueueMusic,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        },
+                        modifier = Modifier.clickable { onPlaylistSelected(playlist.id) }
+                    )
                 }
             }
         },
@@ -1152,11 +1169,6 @@ fun SelectPlaylistDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("取消")
-            }
-            if (isEmpty && onCreateClick != null) {
-                TextButton(onClick = onCreateClick) {
-                    Text("新建")
-                }
             }
         }
     )

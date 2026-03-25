@@ -339,9 +339,7 @@ fun PlaylistScreen(
                     showDeletePlaylistConfirm = true
                 }
             },
-            onCreateClick = if (otherPlaylists.isEmpty()) {
-                { showCreatePlaylistDialog = true }
-            } else null
+            onCreateClick = { showCreatePlaylistDialog = true }
         )
     }
 

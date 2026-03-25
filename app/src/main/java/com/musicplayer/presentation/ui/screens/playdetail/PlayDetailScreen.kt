@@ -1,6 +1,5 @@
 package com.musicplayer.presentation.ui.screens.playdetail
 
-import androidx.activity.result.launch
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,17 +33,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.musicplayer.R
 import com.musicplayer.domain.model.PlayMode
 import com.musicplayer.domain.model.Song
 import com.musicplayer.presentation.ui.components.formatDuration
+import com.musicplayer.presentation.ui.screens.mymusic.CreatePlaylistDialog
+import com.musicplayer.presentation.ui.screens.mymusic.SelectPlaylistDialog
 import com.musicplayer.presentation.viewmodel.MusicViewModel
+import coil.compose.SubcomposeAsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.text.toLong
-import kotlin.times
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +67,9 @@ fun PlayDetailScreen(
     // --- 弹窗状态 ---
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showSelectPlaylistDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // 播放队列滚动状态（始终在树中保持滚动位置）
@@ -169,8 +171,23 @@ fun PlayDetailScreen(
                         )
                     }
 
-                    IconButton(onClick = { /* More options */ }) {
-                        Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurface)
+                    Box {
+                        IconButton(onClick = { showMoreMenu = true }) {
+                            Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        DropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismissRequest = { showMoreMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("添加到歌单") },
+                                onClick = {
+                                    showMoreMenu = false
+                                    showSelectPlaylistDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.PlaylistAdd, null) }
+                            )
+                        }
                     }
                 }
 
@@ -387,6 +404,40 @@ fun PlayDetailScreen(
                 scope.launch {
                     sheetState.hide()
                     showQueueSheet = false
+                }
+            }
+        )
+    }
+
+    // --- 添加到歌单对话框 ---
+    if (showSelectPlaylistDialog) {
+        SelectPlaylistDialog(
+            playlists = uiState.playlists,
+            onDismiss = { showSelectPlaylistDialog = false },
+            onPlaylistSelected = { playlistId ->
+                currentSong?.let { song ->
+                    viewModel.addToPlaylist(playlistId, song.id)
+                }
+                showSelectPlaylistDialog = false
+            },
+            onCreateClick = {
+                showSelectPlaylistDialog = false
+                showCreatePlaylistDialog = true
+            }
+        )
+    }
+
+    // --- 创建歌单对话框 ---
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onCreate = { name ->
+                scope.launch {
+                    val playlistId = viewModel.createPlaylist(name)
+                    currentSong?.let { song ->
+                        viewModel.addToPlaylist(playlistId, song.id)
+                    }
+                    showCreatePlaylistDialog = false
                 }
             }
         )
