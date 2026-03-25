@@ -213,6 +213,7 @@ fun MyMusicScreen(
                         onClick = {
                             coroutineScope.launch {
                                 pagerState.scrollToPage(index)
+                                viewModel.setSelectedMyMusicTab(index)
                             }
                         },
                         text = { Text(title) }
@@ -246,8 +247,7 @@ fun MyMusicScreen(
             // HorizontalPager，所有页面都保持状态
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f),
-                beyondBoundsPageCount = 0
+                modifier = Modifier.weight(1f)
             ) { page ->
                 when (page) {
                     0 -> LocalMusicTab(
