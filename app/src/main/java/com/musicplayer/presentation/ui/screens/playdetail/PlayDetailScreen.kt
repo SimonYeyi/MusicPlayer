@@ -92,7 +92,8 @@ fun PlayDetailScreen(
         }
     }
 
-    // 封面旋转动画
+    // 封面旋转动画：暂停时保持当前角度，不重置
+    var frozenAngle by remember { mutableFloatStateOf(0f) }
     val infiniteTransition = rememberInfiniteTransition(label = "rotation")
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -103,6 +104,12 @@ fun PlayDetailScreen(
         ),
         label = "album_rotation"
     )
+    LaunchedEffect(rotation, playbackState.isPlaying) {
+        if (playbackState.isPlaying) {
+            frozenAngle = rotation
+        }
+    }
+    val displayRotation = if (playbackState.isPlaying) rotation else frozenAngle
 
     val playButtonScale by animateFloatAsState(
         targetValue = if (playbackState.isPlaying) 1f else 0.9f,
@@ -225,7 +232,7 @@ fun PlayDetailScreen(
                         modifier = Modifier
                             .fillMaxSize(0.9f)
                             .clip(CircleShape)
-                            .rotate(if (playbackState.isPlaying) rotation else 0f)
+                            .rotate(displayRotation)
                             .border(4.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
                         contentScale = ContentScale.Crop,
                         error = {

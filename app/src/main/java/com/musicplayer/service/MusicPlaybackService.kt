@@ -236,8 +236,13 @@ class MusicPlaybackService : Service() {
             )
             .setOngoing(state.isPlaying)
 
-        // 设置专辑封面
-        currentAlbumArt?.let { builder.setLargeIcon(it) }
+        // 设置专辑封面，无封面时使用默认图
+        if (currentAlbumArt != null) {
+            builder.setLargeIcon(currentAlbumArt)
+        } else {
+            val defaultBitmap = BitmapFactory.decodeResource(resources, R.drawable.ic_default_album)
+            builder.setLargeIcon(defaultBitmap)
+        }
 
         return builder.build()
     }
