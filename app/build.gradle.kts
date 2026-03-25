@@ -1,8 +1,8 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
-    id("com.google.dagger.hilt.android")
-    id("com.google.devtools.ksp")
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -51,61 +51,61 @@ android {
 
 dependencies {
     // Core Android
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
 
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.09.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-text")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.text)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.6")
+    implementation(libs.androidx.navigation.compose)
 
     // Lifecycle & ViewModel
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.59.2")
-    ksp("com.google.dagger:hilt-android-compiler:2.59.2")
-    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // Room
-    implementation("androidx.room:room-runtime:2.7.2")
-    implementation("androidx.room:room-ktx:2.7.2")
-    ksp("androidx.room:room-compiler:2.7.2")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation(libs.kotlinx.coroutines.android)
 
     // Coil for image loading
-    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation(libs.coil.compose)
 
     // Media playback
-    implementation("androidx.media:media:1.7.0")
+    implementation(libs.androidx.media)
 
     // Testing
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
-    testImplementation("io.mockk:mockk:1.13.9")
-    testImplementation("app.cash.turbine:turbine:1.0.0")
-    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
+    testImplementation(libs.turbine)
+    testImplementation(libs.androidx.test.core.ktx)
 
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.09.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("io.mockk:mockk-android:1.13.9")
-    androidTestImplementation("app.cash.turbine:turbine:1.0.0")
-    androidTestImplementation("androidx.room:room-testing:2.7.2")
-    androidTestImplementation("com.google.dagger:hilt-android-testing:2.59.2")
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.mockk.android)
+    androidTestImplementation(libs.turbine)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.hilt.android.testing)
 
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
