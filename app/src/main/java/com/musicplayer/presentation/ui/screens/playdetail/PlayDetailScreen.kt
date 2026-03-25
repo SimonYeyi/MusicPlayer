@@ -1,5 +1,6 @@
 package com.musicplayer.presentation.ui.screens.playdetail
 
+import androidx.activity.result.launch
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -41,6 +43,8 @@ import com.musicplayer.presentation.ui.components.formatDuration
 import com.musicplayer.presentation.viewmodel.MusicViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.text.toLong
+import kotlin.times
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +69,28 @@ fun PlayDetailScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showQueueSheet by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // 播放队列滚动状态（始终在树中保持滚动位置）
+    val queueListState = rememberLazyListState()
+    // 标记是否已滚动过（避免每次展开都滚动）
+    var hasScrolled by remember { mutableStateOf(false) }
+
+    // 首次展开时，将当前歌曲定位到列表可见区域的中间
+    LaunchedEffect(showQueueSheet, sheetState.currentValue, currentSong?.id, uiState.currentPlaylist) {
+        if (showQueueSheet && sheetState.currentValue == SheetValue.Expanded
+            && !hasScrolled && currentSong?.id != null && uiState.currentPlaylist.isNotEmpty()) {
+            val playlist = uiState.currentPlaylist
+            val index = playlist.indexOfFirst { it.id == currentSong.id }
+            if (index >= 0) {
+                // 当前歌曲显示在可见区域中间
+                // 高度420dp约5项可见，居中：上方2项当前歌曲在中间
+                val visibleHalf = 2
+                val targetIndex = (index - visibleHalf).coerceAtLeast(0)
+                queueListState.animateScrollToItem(targetIndex)
+                hasScrolled = true
+            }
+        }
+    }
 
     // 封面旋转动画
     val infiniteTransition = rememberInfiniteTransition(label = "rotation")
@@ -211,6 +237,7 @@ fun PlayDetailScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // --- 进度条 (Slider) ---
+                // --- 进度条 (Slider) 优化修复 ---
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                     Slider(
                         value = displaySliderPosition,
@@ -222,23 +249,70 @@ fun PlayDetailScreen(
                             val newPosition = (dragPosition * playbackState.duration).toLong()
                             viewModel.seekTo(newPosition)
                             scope.launch {
-                                delay(100) // 解决同步回弹问题
+                                delay(150)
                                 isDragging = false
                             }
                         },
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        )
+                        // 修复滑块对齐与样式
+                        thumb = {
+                            val thumbSize = if (isDragging) 22.dp else 16.dp
+                            val thumbColor = MaterialTheme.colorScheme.onSurface
+
+                            Box(
+                                modifier = Modifier.size(32.dp), // 增大点击热区容器
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(thumbSize)
+                                        .clip(CircleShape)
+                                        .background(thumbColor)
+                                        .border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                        },
+                        // 修复轨道缩短与末端小点
+                        track = { sliderState ->
+                            SliderDefaults.Track(
+                                sliderState = sliderState,
+                                modifier = Modifier
+                                    .height(3.dp) // 稍微再细一点，增加精致感
+                                    .fillMaxWidth(),
+                                colors = SliderDefaults.colors(
+                                    activeTrackColor = MaterialTheme.colorScheme.onSurface,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                                    // 关键：将不需要的刻度/末端颜色设为透明，消除“小点”
+                                    activeTickColor = Color.Transparent,
+                                    inactiveTickColor = Color.Transparent
+                                ),
+                                thumbTrackGapSize = 0.dp, // 消除滑块与轨道之间的间隙
+                                drawStopIndicator = null // 显式移除末端指示器
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
+
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val currentMs = if (isDragging) (dragPosition * playbackState.duration).toLong() else playbackState.currentPosition
-                        Text(formatDuration(currentMs), style = MaterialTheme.typography.bodySmall)
-                        Text(formatDuration(playbackState.duration), style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            formatDuration(currentMs),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            formatDuration(playbackState.duration),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
                     }
                 }
 
@@ -300,12 +374,13 @@ fun PlayDetailScreen(
         }
     }
 
-    // --- 播放队列弹窗 ---
+    // --- 播放队列弹窗（条件渲染保证不冻结 UI） ---
     if (showQueueSheet) {
         QueueBottomSheet(
             sheetState = sheetState,
             playlist = uiState.currentPlaylist,
             currentSongId = currentSong?.id,
+            listState = queueListState,
             onDismiss = { showQueueSheet = false },
             onSongClick = { _, index ->
                 viewModel.playSongAtIndex(index)
@@ -324,6 +399,7 @@ private fun QueueBottomSheet(
     sheetState: SheetState,
     playlist: List<Song>,
     currentSongId: Long?,
+    listState: androidx.compose.foundation.lazy.LazyListState,
     onDismiss: () -> Unit,
     onSongClick: (Song, Int) -> Unit
 ) {
@@ -344,9 +420,10 @@ private fun QueueBottomSheet(
             )
             HorizontalDivider(modifier = Modifier.alpha(0.1f))
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 450.dp)
+                    .heightIn(max = 420.dp)
             ) {
                 itemsIndexed(
                     items = playlist,
