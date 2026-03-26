@@ -210,6 +210,7 @@ fun PlaylistScreen(
                             isEditMode = true
                             showMoveDialog = true
                         },
+                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) },
                         isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying && uiState.playbackState.currentSong?.id == song.id
                     )
@@ -364,6 +365,7 @@ fun PlaylistSongItem(
     onFavoriteClick: () -> Unit,
     onRemoveClick: () -> Unit,
     onMoveClick: (() -> Unit)? = null,
+    onSetRingtoneClick: (() -> Unit)? = null,
     isCurrentSong: Boolean = false,
     isCurrentlyPlaying: Boolean = false,
     modifier: Modifier = Modifier
@@ -478,8 +480,16 @@ fun PlaylistSongItem(
                                 )
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("设为铃声") },
+                            onClick = {
+                                showMenu = false
+                                onSetRingtoneClick?.invoke()
+                            },
+                            leadingIcon = { Icon(Icons.Default.RingVolume, contentDescription = null) }
+                        )
                     }
-                }
+}
             }
         }
     }
