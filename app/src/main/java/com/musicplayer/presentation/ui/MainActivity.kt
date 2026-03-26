@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -24,12 +25,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectLatest
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.musicplayer.presentation.navigation.MusicNavHost
@@ -116,6 +119,14 @@ class MainActivity : ComponentActivity() {
             val viewModel: MusicViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val pendingDeleteRequest by viewModel.pendingDeleteRequest.collectAsStateWithLifecycle()
+
+            // 监听铃声设置结果 Toast
+            LaunchedEffect(Unit) {
+                viewModel.ringtoneToastMessage.collectLatest { message ->
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+
             val navController = rememberNavController()
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = navBackStackEntry?.destination?.route
@@ -358,6 +369,11 @@ class MainActivity : ComponentActivity() {
         if (returnedFromSettings) {
             returnedFromSettings = false
             checkPermissionsGranted()
+        }
+        // 检查是否刚从铃声设置页面返回
+        val pendingRingtone = currentViewModel?.pendingRingtoneSongId?.value
+        if (pendingRingtone != null) {
+            currentViewModel?.onReturnFromSettingsForRingtone()
         }
     }
 
