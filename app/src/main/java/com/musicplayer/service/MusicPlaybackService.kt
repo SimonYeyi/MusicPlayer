@@ -85,6 +85,7 @@ class MusicPlaybackService : Service() {
         const val ACTION_PREVIOUS = "com.musicplayer.ACTION_PREVIOUS"
         private const val PREFS_NAME = "music_playback_prefs"
         private const val KEY_WAS_PLAYING = "was_playing_before_removal"
+        private const val KEY_PLAY_MODE = "play_mode"
     }
 
     inner class MusicBinder : Binder() {
@@ -153,6 +154,12 @@ class MusicPlaybackService : Service() {
         super.onCreate()
         try {
             prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            // 恢复播放模式
+            val savedPlayMode = prefs.getString(KEY_PLAY_MODE, null)
+            if (savedPlayMode != null) {
+                playMode = try { PlayMode.valueOf(savedPlayMode) } catch (e: Exception) { PlayMode.LIST_LOOP }
+                _playbackState.value = _playbackState.value.copy(playMode = playMode)
+            }
             createNotificationChannel()
             setupMediaSession()
             registerAudioCallbacks()
@@ -504,6 +511,7 @@ class MusicPlaybackService : Service() {
             PlayMode.OFF -> PlayMode.LIST_LOOP
         }
         _playbackState.value = _playbackState.value.copy(playMode = playMode)
+        prefs.edit().putString(KEY_PLAY_MODE, playMode.name).apply()
     }
 
     fun stop() {
