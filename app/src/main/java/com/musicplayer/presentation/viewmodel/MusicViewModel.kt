@@ -20,6 +20,7 @@ import com.musicplayer.domain.model.MoodTheme
 import com.musicplayer.domain.model.PlaybackState
 import com.musicplayer.domain.model.Song
 import com.musicplayer.service.MusicPlaybackService
+import com.musicplayer.util.RingtoneHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -76,6 +77,73 @@ class MusicViewModel @Inject constructor(
 
     fun onDeleteFileDismissed() {
         _pendingDeleteRequest.value = null
+    }
+
+    // 铃声类型选择弹框
+    val showRingtoneTypeDialog = MutableStateFlow(false)
+    val pendingRingtoneSongId = MutableStateFlow<Long?>(null)
+
+    // 权限解释弹框
+    val showRingtonePermissionDialog = MutableStateFlow(false)
+
+    // 铃声设置结果 Toast
+    private val _ringtoneToastMessage = MutableSharedFlow<String>()
+    val ringtoneToastMessage: SharedFlow<String> = _ringtoneToastMessage.asSharedFlow()
+
+    fun onSetRingtoneClick(songId: Long) {
+        if (RingtoneHelper.canWriteSettings(application)) {
+            pendingRingtoneSongId.value = songId
+            showRingtoneTypeDialog.value = true
+        } else {
+            showRingtonePermissionDialog.value = true
+        }
+    }
+
+    fun onRingtoneTypeSelected(type: RingtoneHelper.RingtoneType) {
+        val songId = pendingRingtoneSongId.value ?: return
+        viewModelScope.launch {
+            val song = musicRepository.getSongById(songId)
+            if (song != null) {
+                val success = RingtoneHelper.setRingtone(application, song.uri, type)
+                if (success) {
+                    _ringtoneToastMessage.emit("已设为${type.title}")
+                } else {
+                    // 直接设置失败，尝试用系统选择器
+                    RingtoneHelper.showRingtonePicker(application, type, song.uri)
+                }
+            }
+            showRingtoneTypeDialog.value = false
+            pendingRingtoneSongId.value = null
+        }
+    }
+
+    fun onDismissRingtoneDialog() {
+        showRingtoneTypeDialog.value = false
+        showRingtonePermissionDialog.value = false
+        pendingRingtoneSongId.value = null
+    }
+
+    fun onGoToSettingsForRingtone() {
+        showRingtonePermissionDialog.value = false
+        val intent = RingtoneHelper.getRingtoneTypeIntent(application, RingtoneHelper.RingtoneType.RINGTONE)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        application.startActivity(intent)
+    }
+
+    fun onReturnFromSettingsForRingtone() {
+        // Activity 在 onResume 时调用此方法检查权限
+        if (RingtoneHelper.canWriteSettings(application)) {
+            val songId = pendingRingtoneSongId.value
+            if (songId != null) {
+                pendingRingtoneSongId.value = null
+                onSetRingtoneClick(songId)
+            }
+        } else {
+            pendingRingtoneSongId.value = null
+            viewModelScope.launch {
+                _ringtoneToastMessage.emit("无权限，无法设置铃声")
+            }
+        }
     }
 
     companion object {
