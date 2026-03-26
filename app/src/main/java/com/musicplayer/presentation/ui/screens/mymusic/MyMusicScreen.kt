@@ -257,6 +257,7 @@ fun MyMusicScreen(
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onRemoveFromMusicClick = { song -> songToDelete = song },
                         onTogglePinArtist = { artist -> viewModel.togglePinArtist(artist) },
+                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
                         uiState = uiState,
                         listState = localMusicListState
                     )
@@ -269,6 +270,7 @@ fun MyMusicScreen(
                         },
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
+                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying,
                         listState = favoritesListState,
@@ -285,6 +287,7 @@ fun MyMusicScreen(
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onRemoveFromRecentClick = { songId -> viewModel.removeFromRecentPlays(songId) },
+                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
                         favoriteIds = uiState.favoriteSongIds,
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying,
@@ -421,6 +424,7 @@ fun LocalMusicTab(
     onAddToPlaylistClick: (Long) -> Unit,
     onRemoveFromMusicClick: (Song) -> Unit,
     onTogglePinArtist: (String) -> Unit,
+    onSetRingtoneClick: (Long) -> Unit,
     uiState: com.musicplayer.presentation.viewmodel.MusicUiState,
     listState: androidx.compose.foundation.lazy.LazyListState
 ) {
@@ -457,6 +461,7 @@ fun LocalMusicTab(
                             onFavoriteClick = { onFavoriteClick(song.id) },
                             onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                             onRemoveFromMusicClick = { onRemoveFromMusicClick(song) },
+                            onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                             isFavorite = uiState.favoriteSongIds.contains(song.id),
                             isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
                             isCurrentlyPlaying = uiState.playbackState.isPlaying && uiState.playbackState.currentSong?.id == song.id
@@ -481,6 +486,7 @@ fun LocalMusicTab(
                             onFavoriteClick = { onFavoriteClick(song.id) },
                             onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                             onRemoveFromMusicClick = { onRemoveFromMusicClick(song) },
+                            onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                             isFavorite = uiState.favoriteSongIds.contains(song.id),
                             isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
                             isCurrentlyPlaying = uiState.playbackState.isPlaying && uiState.playbackState.currentSong?.id == song.id
@@ -561,6 +567,7 @@ fun FavoritesTab(
     onSongClick: (Song) -> Unit,
     onFavoriteClick: (Long) -> Unit,
     onAddToPlaylistClick: (Long) -> Unit,
+    onSetRingtoneClick: (Long) -> Unit,
     currentPlayingSongId: Long?,
     isCurrentlyPlaying: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
@@ -588,6 +595,7 @@ fun FavoritesTab(
                     onClick = { onSongClick(song) },
                     onFavoriteClick = { onFavoriteClick(song.id) },
                     onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
+                    onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                     isFavorite = true,
                     isCurrentSong = currentPlayingSongId == song.id,
                     isCurrentlyPlaying = isCurrentlyPlaying && currentPlayingSongId == song.id
@@ -605,6 +613,7 @@ fun RecentlyPlayedTab(
     onFavoriteClick: (Long) -> Unit,
     onAddToPlaylistClick: (Long) -> Unit,
     onRemoveFromRecentClick: (Long) -> Unit,
+    onSetRingtoneClick: (Long) -> Unit,
     favoriteIds: Set<Long> = emptySet(),
     currentPlayingSongId: Long?,
     isCurrentlyPlaying: Boolean,
@@ -635,6 +644,7 @@ fun RecentlyPlayedTab(
                     onFavoriteClick = { onFavoriteClick(song.id) },
                     onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                     onRemoveFromRecentClick = { onRemoveFromRecentClick(song.id) },
+                    onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                     isFavorite = favoriteIds.contains(song.id),
                     isCurrentSong = currentPlayingSongId == song.id,
                     isCurrentlyPlaying = isCurrentlyPlaying && currentPlayingSongId == song.id
