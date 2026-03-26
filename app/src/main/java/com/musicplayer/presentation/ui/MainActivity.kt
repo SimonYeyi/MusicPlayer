@@ -18,6 +18,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.ActivityResultLauncher
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +41,7 @@ import com.musicplayer.presentation.navigation.Screen
 import com.musicplayer.presentation.ui.components.MiniPlayer
 import com.musicplayer.presentation.ui.components.MoodThemePickerDialog
 import com.musicplayer.presentation.viewmodel.MusicViewModel
+import com.musicplayer.util.RingtoneHelper
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -230,6 +232,51 @@ class MainActivity : ComponentActivity() {
                                 }
                             ) {
                                 Text("退出")
+                            }
+                        }
+                    )
+                }
+
+                // 铃声类型选择对话框
+                if (viewModel.showRingtoneTypeDialog.collectAsState().value) {
+                    AlertDialog(
+                        onDismissRequest = { viewModel.onDismissRingtoneDialog() },
+                        title = { Text("设为铃声") },
+                        text = {
+                            Column {
+                                RingtoneHelper.RingtoneType.entries.forEach { type ->
+                                    ListItem(
+                                        headlineContent = { Text(type.title) },
+                                        modifier = Modifier.clickable {
+                                            viewModel.onRingtoneTypeSelected(type)
+                                        }
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {},
+                        dismissButton = {
+                            TextButton(onClick = { viewModel.onDismissRingtoneDialog() }) {
+                                Text("取消")
+                            }
+                        }
+                    )
+                }
+
+                // 铃声权限解释对话框
+                if (viewModel.showRingtonePermissionDialog.collectAsState().value) {
+                    AlertDialog(
+                        onDismissRequest = { viewModel.onDismissRingtoneDialog() },
+                        title = { Text("提示") },
+                        text = { Text("设置铃声需要特殊权限，请在设置中授权后重试。") },
+                        confirmButton = {
+                            TextButton(onClick = { viewModel.onGoToSettingsForRingtone() }) {
+                                Text("去设置")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { viewModel.onDismissRingtoneDialog() }) {
+                                Text("取消")
                             }
                         }
                     )
