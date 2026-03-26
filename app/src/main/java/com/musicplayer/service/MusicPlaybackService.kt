@@ -480,7 +480,12 @@ class MusicPlaybackService : Service() {
         if (currentSong != null && currentSong.id == song.id) {
             // 正在播放则忽略，暂停则恢复播放
             if (!_playbackState.value.isPlaying) {
-                play()
+                // mediaPlayer 为 null 时不能调用 play()（会循环调用 playSong），需要重新 prepare
+                if (mediaPlayer == null) {
+                    prepareAndPlay(song, quiet)
+                } else {
+                    play()
+                }
             }
             return
         }
