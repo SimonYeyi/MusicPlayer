@@ -123,7 +123,10 @@ fun PlaylistPickerDialog(
                                     )
                                 }
                             },
-                            modifier = Modifier.clickable { onPlaylistSelected(playlist.id) }
+                            modifier = Modifier.clickable {
+                                onPlaylistSelected(playlist.id)
+                                onDismiss()
+                            }
                         )
                     }
                 }
