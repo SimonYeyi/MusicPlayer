@@ -829,6 +829,7 @@ fun SongListItem(
     isCurrentlyPlaying: Boolean = false,
     onRemoveFromRecentClick: (() -> Unit)? = null,
     onRemoveFromMusicClick: (() -> Unit)? = null,
+    onSetRingtoneClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -944,7 +945,10 @@ fun SongListItem(
                         )
                         DropdownMenuItem(
                             text = { Text("设为铃声") },
-                            onClick = { showMenu = false },
+                            onClick = {
+                                showMenu = false
+                                onSetRingtoneClick?.invoke()
+                            },
                             leadingIcon = { Icon(Icons.Default.RingVolume, contentDescription = null) }
                         )
                     }
