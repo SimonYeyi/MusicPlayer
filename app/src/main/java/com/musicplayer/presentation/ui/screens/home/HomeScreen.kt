@@ -162,7 +162,8 @@ fun HomeScreen(
                         onClick = {
                             viewModel.playSong(song)
                             onNavigateToPlayDetail()
-                        }
+                        },
+                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) }
                     )
                 }
             }
@@ -373,6 +374,7 @@ fun HotSongItem(
     song: Song,
     rank: Int,
     onClick: () -> Unit,
+    onSetRingtoneClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -449,6 +451,16 @@ fun HotSongItem(
                     onClick = { showMenu = false },
                     leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
                 )
+                if (onSetRingtoneClick != null) {
+                    DropdownMenuItem(
+                        text = { Text("设为铃声") },
+                        onClick = {
+                            showMenu = false
+                            onSetRingtoneClick()
+                        },
+                        leadingIcon = { Icon(Icons.Default.RingVolume, contentDescription = null) }
+                    )
+                }
             }
         }
     }
