@@ -69,6 +69,64 @@ class MusicPlaybackService : Service() {
     // 当前播放列表的标识，用于判断列表数据变化是否需要同步到播放队列
     private var currentPlaylistId: String? = null
 
+    // 随机播放相关状态
+    // shuffleQueue：初始为 [当前歌曲索引]，队尾追加随机歌曲后变为 [当前歌曲, 随机... ]
+    // shuffleIndex：指向 shuffleQueue 中当前应播放歌曲的索引
+    private var shuffleQueue: MutableList<Int> = mutableListOf()
+    private var shuffleIndex: Int = 0
+
+    // 初始化随机队列（仅含当前歌曲）
+    private fun initShuffleQueue(currentSongIndex: Int) {
+        shuffleQueue = mutableListOf(currentSongIndex)
+        shuffleIndex = 0
+    }
+
+    // 队尾追加：取可视队列中除当前歌曲外的歌曲，随机追加到随机队列
+    private fun appendToShuffleQueue(excludeSongIndex: Int) {
+        val playlist = _currentPlaylist.value
+        if (playlist.isEmpty()) return
+        val candidates = playlist.indices.filter { it != excludeSongIndex }
+        shuffleQueue.addAll(candidates.shuffled())
+    }
+
+    // 下一曲：队列前进，已到队尾则追加后继续
+    private fun peekNextFromShuffle(): Song? {
+        val playlist = _currentPlaylist.value
+        if (playlist.isEmpty()) return null
+        if (shuffleQueue.isEmpty()) {
+            initShuffleQueue(currentIndex)
+        }
+        // 已到队尾，追加新的随机歌曲（排除当前播放歌曲）
+        if (shuffleIndex >= shuffleQueue.size - 1) {
+            appendToShuffleQueue(shuffleQueue[shuffleIndex])
+        }
+        shuffleIndex++
+        val idx = shuffleQueue.getOrNull(shuffleIndex) ?: return null
+        return playlist.getOrNull(idx)
+    }
+
+    // 上一曲：队列后退，已到队头则按下一曲逻辑
+    private fun peekPreviousFromShuffle(): Song? {
+        val playlist = _currentPlaylist.value
+        if (playlist.isEmpty()) return null
+        if (shuffleQueue.isEmpty()) {
+            initShuffleQueue(currentIndex)
+        }
+        if (shuffleIndex > 0) {
+            // 正常后退
+            shuffleIndex--
+            return playlist.getOrNull(shuffleQueue[shuffleIndex])
+        } else {
+            // 在队头：队列只有一个元素时追加，否则直接前进（队尾检查失败则前进）
+            if (shuffleQueue.size == 1) {
+                appendToShuffleQueue(shuffleQueue[0])
+            }
+            shuffleIndex++
+            val idx = shuffleQueue.getOrNull(shuffleIndex) ?: return null
+            return playlist.getOrNull(idx)
+        }
+    }
+
     // 标志位：记录断连前是否在播放，用于重连后恢复（持久化到 SharedPreferences 以便 Service 被杀死后重建时能恢复）
     private var wasPlayingBeforeDeviceRemoval = false
     private lateinit var prefs: SharedPreferences
@@ -345,6 +403,10 @@ class MusicPlaybackService : Service() {
             currentIndex = if (index >= 0) index else 0
         }
         isQuietMode = quiet
+        // 随机模式下设置新播放列表时，重新初始化随机队列
+        if (playMode == PlayMode.SHUFFLE) {
+            initShuffleQueue(currentIndex)
+        }
     }
 
     // 同步播放列表：只有列表标识与当前播放的列表匹配时才更新
@@ -478,24 +540,24 @@ class MusicPlaybackService : Service() {
         val playlist = _currentPlaylist.value
         if (playlist.isEmpty()) return
 
-        currentIndex = if (playMode == PlayMode.SHUFFLE) {
-            (playlist.indices).random()
+        if (playMode == PlayMode.SHUFFLE) {
+            peekNextFromShuffle()?.let { playSong(it, quiet = isQuietMode) }
         } else {
-            (currentIndex + 1) % playlist.size
+            currentIndex = (currentIndex + 1) % playlist.size
+            playSong(playlist[currentIndex], quiet = isQuietMode)
         }
-        playSong(playlist[currentIndex], quiet = isQuietMode)
     }
 
     fun playPrevious() {
         val playlist = _currentPlaylist.value
         if (playlist.isEmpty()) return
 
-        currentIndex = if (currentIndex > 0) {
-            currentIndex - 1
+        if (playMode == PlayMode.SHUFFLE) {
+            peekPreviousFromShuffle()?.let { playSong(it, quiet = isQuietMode) }
         } else {
-            playlist.size - 1
+            currentIndex = if (currentIndex > 0) currentIndex - 1 else playlist.size - 1
+            playSong(playlist[currentIndex], quiet = isQuietMode)
         }
-        playSong(playlist[currentIndex], quiet = isQuietMode)
     }
 
     fun seekTo(position: Int) {
@@ -504,6 +566,7 @@ class MusicPlaybackService : Service() {
     }
 
     fun togglePlayMode() {
+        val previousMode = playMode
         playMode = when (playMode) {
             PlayMode.LIST_LOOP -> PlayMode.SHUFFLE
             PlayMode.SHUFFLE -> PlayMode.ONE_LOOP
@@ -512,6 +575,10 @@ class MusicPlaybackService : Service() {
         }
         _playbackState.value = _playbackState.value.copy(playMode = playMode)
         prefs.edit().putString(KEY_PLAY_MODE, playMode.name).apply()
+        // 切换到随机模式时，重新初始化随机队列
+        if (playMode == PlayMode.SHUFFLE && previousMode != PlayMode.SHUFFLE) {
+            initShuffleQueue(currentIndex)
+        }
     }
 
     fun stop() {
