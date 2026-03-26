@@ -37,6 +37,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.*
 import com.musicplayer.data.repository.MusicRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,6 +89,28 @@ class MusicPlaybackService : Service() {
 
     inner class MusicBinder : Binder() {
         fun getService(): MusicPlaybackService = this@MusicPlaybackService
+
+        /** 接收 ViewModel 传过来的排序后本地音乐 Flow，保持播放队列与本地音乐界面完全一致的排序 */
+        fun setSortedLocalMusicFlow(flow: Flow<List<Song>>) {
+            this@MusicPlaybackService.setSortedLocalMusicFlow(flow)
+        }
+    }
+
+    /** 观察 ViewModel 传来的排序后本地音乐列表，仅当当前播放来源为本地音乐时更新队列 */
+    fun setSortedLocalMusicFlow(flow: Flow<List<Song>>) {
+        serviceScope.launch {
+            flow.collect { songs ->
+                if (currentPlaylistId == "local") {
+                    _currentPlaylist.value = songs
+                    // 列表首次加载时，显示第一首歌（不自动播放）
+                    if (songs.isNotEmpty() && _playbackState.value.currentSong == null) {
+                        val firstSong = songs.first()
+                        _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
+                        loadAlbumArt(firstSong.uri)
+                    }
+                }
+            }
+        }
     }
 
     // 音频设备回调：设备断开时暂停、重新连接时继续播放（API 31+）
@@ -132,21 +155,6 @@ class MusicPlaybackService : Service() {
             createNotificationChannel()
             setupMediaSession()
             registerAudioCallbacks()
-            // 观察本地音乐列表变化，同步到通知栏播放列表
-            // 仅当当前播放来源为本地音乐时才更新，否则扫描不会干扰其他来源的播放队列
-            serviceScope.launch {
-                musicRepository.getAllSongs().collect { songs ->
-                    if (currentPlaylistId == "local") {
-                        _currentPlaylist.value = songs
-                        // 列表首次加载时，显示第一首歌（不自动播放）
-                        if (songs.isNotEmpty() && _playbackState.value.currentSong == null) {
-                            val firstSong = songs.first()
-                            _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
-                            loadAlbumArt(firstSong.uri)
-                        }
-                    }
-                }
-            }
             // 检查是否需要恢复因蓝牙断连而暂停的播放（Service 重建时读取 SharedPreferences）
             if (prefs.getBoolean(KEY_WAS_PLAYING, false)) {
                 wasPlayingBeforeDeviceRemoval = true

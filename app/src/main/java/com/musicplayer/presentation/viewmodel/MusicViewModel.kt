@@ -105,6 +105,10 @@ class MusicViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MusicUiState(currentTheme = savedTheme, pinnedArtists = savedPinnedArtists))
     val uiState: StateFlow<MusicUiState> = _uiState.asStateFlow()
 
+    /** 排序后的本地音乐列表，与本地音乐界面使用完全相同的排序逻辑 */
+    private val _sortedLocalMusic = MutableStateFlow<List<Song>>(emptyList())
+    val sortedLocalMusic: StateFlow<List<Song>> = _sortedLocalMusic.asStateFlow()
+
     private var musicService: MusicPlaybackService? = null
     private var serviceBound = false
 
@@ -114,6 +118,8 @@ class MusicViewModel @Inject constructor(
                 val binder = service as MusicPlaybackService.MusicBinder
                 musicService = binder.getService()
                 serviceBound = true
+                // 将排序后的本地音乐列表传给 Service，Service 观察此 flow 保持队列同步
+                musicService?.setSortedLocalMusicFlow(_sortedLocalMusic)
                 observePlaybackState()
             } catch (e: Exception) {
                 serviceBound = false
@@ -509,6 +515,7 @@ class MusicViewModel @Inject constructor(
             pinnedArtistsList.forEach { artist -> groupedSongs[artist]?.let { addAll(it) } }
             unpinnedArtists.forEach { artist -> groupedSongs[artist]?.let { addAll(it) } }
         }
+        _sortedLocalMusic.value = sortedSongs
         musicService?.syncPlaylist("local", sortedSongs)
     }
 
