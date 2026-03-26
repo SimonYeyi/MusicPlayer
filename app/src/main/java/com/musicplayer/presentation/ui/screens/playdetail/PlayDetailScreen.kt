@@ -209,6 +209,14 @@ fun PlayDetailScreen(
                                     )
                                 }
                             )
+                            DropdownMenuItem(
+                                text = { Text("设为铃声") },
+                                onClick = {
+                                    showMoreMenu = false
+                                    currentSong?.let { viewModel.onSetRingtoneClick(it.id) }
+                                },
+                                leadingIcon = { Icon(Icons.Default.RingVolume, null) }
+                            )
                         }
                     }
                 }
