@@ -171,6 +171,8 @@ class MusicViewModel @Inject constructor(
                         hasLoadedSongs = true
                     )
                 }
+                // 数据库歌曲变化（扫描/重排）后，重新计算本地音乐排序并同步到播放队列
+                syncLocalMusicSortedPlaylist(_uiState.value.pinnedArtists)
             }
         }
     }

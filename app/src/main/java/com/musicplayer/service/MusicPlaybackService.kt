@@ -133,14 +133,17 @@ class MusicPlaybackService : Service() {
             setupMediaSession()
             registerAudioCallbacks()
             // 观察本地音乐列表变化，同步到通知栏播放列表
+            // 仅当当前播放来源为本地音乐时才更新，否则扫描不会干扰其他来源的播放队列
             serviceScope.launch {
                 musicRepository.getAllSongs().collect { songs ->
-                    _currentPlaylist.value = songs
-                    // 列表首次加载时，显示第一首歌（不自动播放）
-                    if (songs.isNotEmpty() && _playbackState.value.currentSong == null) {
-                        val firstSong = songs.first()
-                        _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
-                        loadAlbumArt(firstSong.uri)
+                    if (currentPlaylistId == "local") {
+                        _currentPlaylist.value = songs
+                        // 列表首次加载时，显示第一首歌（不自动播放）
+                        if (songs.isNotEmpty() && _playbackState.value.currentSong == null) {
+                            val firstSong = songs.first()
+                            _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
+                            loadAlbumArt(firstSong.uri)
+                        }
                     }
                 }
             }
