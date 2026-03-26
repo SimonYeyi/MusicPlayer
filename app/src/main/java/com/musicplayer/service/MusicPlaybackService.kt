@@ -100,14 +100,15 @@ class MusicPlaybackService : Service() {
     fun setSortedLocalMusicFlow(flow: Flow<List<Song>>) {
         serviceScope.launch {
             flow.collect { songs ->
-                if (currentPlaylistId == "local") {
+                // 进程启动后，队列为空时用排序后的本地音乐初始化
+                if (_currentPlaylist.value.isEmpty() && songs.isNotEmpty()) {
+                    currentPlaylistId = "local"
                     _currentPlaylist.value = songs
-                    // 列表首次加载时，显示第一首歌（不自动播放）
-                    if (songs.isNotEmpty() && _playbackState.value.currentSong == null) {
-                        val firstSong = songs.first()
-                        _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
-                        loadAlbumArt(firstSong.uri)
-                    }
+                    val firstSong = songs.first()
+                    _playbackState.value = _playbackState.value.copy(currentSong = firstSong)
+                    loadAlbumArt(firstSong.uri)
+                } else if (currentPlaylistId == "local") {
+                    _currentPlaylist.value = songs
                 }
             }
         }
