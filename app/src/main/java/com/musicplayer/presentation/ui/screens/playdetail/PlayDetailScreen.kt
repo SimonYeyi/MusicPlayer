@@ -423,7 +423,6 @@ fun PlayDetailScreen(
             sheetState = sheetState,
             playlist = uiState.currentPlaylist,
             currentSongId = currentSong?.id,
-            isPlaying = playbackState.isPlaying,
             listState = queueListState,
             onDismiss = { showQueueSheet = false },
             onSongClick = { _, index ->
@@ -459,7 +458,6 @@ private fun QueueBottomSheet(
     sheetState: SheetState,
     playlist: List<Song>,
     currentSongId: Long?,
-    isPlaying: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onDismiss: () -> Unit,
     onSongClick: (Song, Int) -> Unit
@@ -505,7 +503,7 @@ private fun QueueBottomSheet(
                         leadingContent = {
                             if (isCurrent) {
                                 Icon(
-                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    Icons.Default.PlayArrow,
                                     null,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
