@@ -41,6 +41,7 @@ import com.musicplayer.presentation.ui.components.MiniPlayer
 import com.musicplayer.presentation.ui.components.MoodThemePickerDialog
 import com.musicplayer.presentation.viewmodel.MusicViewModel
 import com.musicplayer.util.RingtoneHelper
+import com.musicplayer.util.ShareHelper
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -125,6 +126,15 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 viewModel.ringtoneToastMessage.collectLatest { message ->
                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // 监听分享事件
+            LaunchedEffect(Unit) {
+                viewModel.shareSongEvent.collectLatest { song ->
+                    if (!ShareHelper.shareSong(this@MainActivity, song)) {
+                        Toast.makeText(this@MainActivity, "分享失败", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
 
