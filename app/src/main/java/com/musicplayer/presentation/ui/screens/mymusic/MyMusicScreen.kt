@@ -328,7 +328,8 @@ fun MyMusicScreen(
                 }
                 newId
             },
-            title = if (songToAddToPlaylist == 0L) "新建歌单" else "添加到歌单"
+            title = if (songToAddToPlaylist == 0L) "新建歌单" else "添加到歌单",
+            checkDuplicate = { name -> viewModel.hasPlaylistWithName(name) }
         )
     }
 

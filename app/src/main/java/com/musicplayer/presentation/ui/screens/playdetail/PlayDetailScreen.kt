@@ -449,7 +449,8 @@ fun PlayDetailScreen(
                     viewModel.addToPlaylist(newId, song.id)
                 }
                 newId
-            }
+            },
+            checkDuplicate = { name -> viewModel.hasPlaylistWithName(name) }
         )
     }
 }

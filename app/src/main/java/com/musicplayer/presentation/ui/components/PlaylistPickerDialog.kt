@@ -45,6 +45,7 @@ import kotlinx.coroutines.launch
  * - 列表顶部始终显示"新建歌单"选项
  * - 新建完成后自动关闭弹框并通过 [onPlaylistCreated] 回调通知调用方
  * - 选择已有歌单后通过 [onPlaylistSelected] 回调通知调用方
+ * - 新建时通过 [checkDuplicate] 检查同名歌单并提示
  *
  * @param playlists 可选歌单列表（可为空）
  * @param title 弹框标题，默认"添加到歌单"
@@ -52,6 +53,7 @@ import kotlinx.coroutines.launch
  * @param onDismiss 弹框关闭回调
  * @param onPlaylistSelected 选择已有歌单时的回调，参数为歌单 ID
  * @param onPlaylistCreated 新建歌单时的回调，参数为歌单名称，返回新建的歌单 ID
+ * @param checkDuplicate 检查歌单名称是否已存在，返回 true 表示已存在
  */
 @Composable
 fun PlaylistPickerDialog(
@@ -61,6 +63,7 @@ fun PlaylistPickerDialog(
     onPlaylistCreated: suspend (name: String) -> Long,
     title: String = "添加到歌单",
     excludedPlaylistIds: Set<Long> = emptySet(),
+    checkDuplicate: suspend (String) -> Boolean = { false },
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -73,7 +76,8 @@ fun PlaylistPickerDialog(
                     val newId = onPlaylistCreated(name)
                     onDismiss()
                 }
-            }
+            },
+            checkDuplicate = checkDuplicate
         )
     } else {
         AlertDialog(
@@ -145,14 +149,30 @@ fun PlaylistPickerDialog(
 private fun CreatePlaylistDialogInternal(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit,
+    checkDuplicate: suspend (String) -> Boolean = { false },
 ) {
     var playlistName by remember { mutableStateOf("") }
+    var isDuplicate by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(Unit) {
         focusManager.clearFocus()
         keyboardController?.show()
+    }
+
+    val confirmEnabled = playlistName.isNotBlank() && !isDuplicate
+
+    fun handleCreate(name: String) {
+        if (name.isBlank()) return
+        scope.launch {
+            if (checkDuplicate(name)) {
+                isDuplicate = true
+            } else {
+                onCreate(name)
+            }
+        }
     }
 
     AlertDialog(
@@ -162,25 +182,28 @@ private fun CreatePlaylistDialogInternal(
             Column {
                 OutlinedTextField(
                     value = playlistName,
-                    onValueChange = { playlistName = it },
+                    onValueChange = {
+                        playlistName = it
+                        isDuplicate = false
+                    },
                     label = { Text("歌单名称") },
+                    isError = isDuplicate,
+                    supportingText = if (isDuplicate) {
+                        { Text("歌单名称已存在") }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (playlistName.isNotBlank()) {
-                                onCreate(playlistName)
-                            }
-                        }
+                        onDone = { handleCreate(playlistName) }
                     )
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(playlistName) },
-                enabled = playlistName.isNotBlank()
+                onClick = { handleCreate(playlistName) },
+                enabled = confirmEnabled
             ) {
                 Text("创建")
             }

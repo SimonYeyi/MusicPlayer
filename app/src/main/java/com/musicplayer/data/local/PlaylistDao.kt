@@ -54,4 +54,8 @@ interface PlaylistDao {
     // 更新歌单名称
     @Query("UPDATE playlists SET name = :name WHERE id = :playlistId")
     suspend fun updatePlaylistName(playlistId: Long, name: String)
+
+    // 检查是否存在同名歌单
+    @Query("SELECT EXISTS(SELECT 1 FROM playlists WHERE name = :name COLLATE NOCASE)")
+    suspend fun hasPlaylistWithName(name: String): Boolean
 }

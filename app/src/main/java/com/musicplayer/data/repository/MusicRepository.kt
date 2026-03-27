@@ -141,6 +141,10 @@ class MusicRepository @Inject constructor(
         return playlistDao.insertPlaylist(PlaylistEntity(name = name))
     }
 
+    suspend fun hasPlaylistWithName(name: String): Boolean {
+        return playlistDao.hasPlaylistWithName(name)
+    }
+
     suspend fun deletePlaylist(playlistId: Long) {
         playlistDao.deletePlaylistById(playlistId)
     }

@@ -348,7 +348,8 @@ fun PlaylistScreen(
                     showDeletePlaylistConfirm = true
                 }
                 newPlaylistId
-            }
+            },
+            checkDuplicate = { name -> viewModel.hasPlaylistWithName(name) }
         )
     }
 }

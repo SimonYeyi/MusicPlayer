@@ -477,6 +477,10 @@ class MusicViewModel @Inject constructor(
         return musicRepository.createPlaylist(name)
     }
 
+    suspend fun hasPlaylistWithName(name: String): Boolean {
+        return musicRepository.hasPlaylistWithName(name)
+    }
+
     fun deletePlaylist(playlistId: Long) {
         viewModelScope.launch {
             musicRepository.deletePlaylist(playlistId)
