@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
+import android.media.RingtoneManager
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -106,6 +107,22 @@ class MainActivity : ComponentActivity() {
         pendingDeleteSongId = -1L
     }
 
+    // 铃声选择器Launcher
+    private var pendingRingtoneType: RingtoneHelper.RingtoneType? = null
+    private val ringtonePickerLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val type = pendingRingtoneType
+        pendingRingtoneType = null
+        if (result.resultCode == RESULT_OK && type != null) {
+            val pickedUri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val success = RingtoneHelper.setRingtone(this, type, pickedUri)
+            currentViewModel?.onRingtonePickerResult(success)
+        } else {
+            currentViewModel?.onRingtonePickerResult(false)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -135,6 +152,15 @@ class MainActivity : ComponentActivity() {
                     if (!ShareHelper.shareSong(this@MainActivity, song)) {
                         Toast.makeText(this@MainActivity, "分享失败", Toast.LENGTH_SHORT).show()
                     }
+                }
+            }
+
+            // 监听铃声选择器请求
+            LaunchedEffect(Unit) {
+                viewModel.ringtonePickerRequest.collectLatest { request ->
+                    pendingRingtoneType = request.type
+                    val intent = RingtoneHelper.getRingtonePickerIntent(request.type, request.songUri)
+                    ringtonePickerLauncher.launch(intent)
                 }
             }
 

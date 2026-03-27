@@ -82,6 +82,8 @@ class MusicViewModel @Inject constructor(
     // 铃声类型选择弹框
     val showRingtoneTypeDialog = MutableStateFlow(false)
     val pendingRingtoneSongId = MutableStateFlow<Long?>(null)
+    private val _pendingRingtoneSong = MutableStateFlow<Song?>(null)
+    val pendingRingtoneSong: StateFlow<Song?> = _pendingRingtoneSong.asStateFlow()
 
     // 权限解释弹框
     val showRingtonePermissionDialog = MutableStateFlow(false)
@@ -95,29 +97,51 @@ class MusicViewModel @Inject constructor(
     val shareSongEvent: SharedFlow<Song> = _shareSongEvent.asSharedFlow()
 
     fun onSetRingtoneClick(songId: Long) {
-        if (RingtoneHelper.canWriteSettings(application)) {
-            pendingRingtoneSongId.value = songId
-            showRingtoneTypeDialog.value = true
-        } else {
-            showRingtonePermissionDialog.value = true
+        viewModelScope.launch {
+            val song = musicRepository.getSongById(songId)
+            if (song != null) {
+                pendingRingtoneSongId.value = songId
+                _pendingRingtoneSong.value = song
+                if (RingtoneHelper.canWriteSettings(application)) {
+                    showRingtoneTypeDialog.value = true
+                } else {
+                    showRingtonePermissionDialog.value = true
+                }
+            } else {
+                _ringtoneToastMessage.emit("歌曲信息获取失败")
+            }
         }
     }
 
     fun onRingtoneTypeSelected(type: RingtoneHelper.RingtoneType) {
-        val songId = pendingRingtoneSongId.value ?: return
+        val song = _pendingRingtoneSong.value ?: return
+        showRingtoneTypeDialog.value = false
         viewModelScope.launch {
-            val song = musicRepository.getSongById(songId)
-            if (song != null) {
-                val success = RingtoneHelper.setRingtone(application, song.uri, type)
-                if (success) {
-                    _ringtoneToastMessage.emit("已设为${type.title}")
-                } else {
-                    // 直接设置失败，尝试用系统选择器
-                    RingtoneHelper.showRingtonePicker(application, type, song.uri)
-                }
-            }
-            showRingtoneTypeDialog.value = false
+            val success = RingtoneHelper.setRingtone(application, type, song.uri)
             pendingRingtoneSongId.value = null
+            _pendingRingtoneSong.value = null
+            if (success) {
+                _ringtoneToastMessage.emit("已设为${type.title}")
+            } else {
+                _ringtoneToastMessage.emit("设置铃声失败")
+            }
+        }
+    }
+
+    data class RingtonePickerRequest(val type: RingtoneHelper.RingtoneType, val songUri: Uri?)
+
+    private val _ringtonePickerRequest = MutableSharedFlow<RingtonePickerRequest>()
+    val ringtonePickerRequest: SharedFlow<RingtonePickerRequest> = _ringtonePickerRequest.asSharedFlow()
+
+    fun onRingtonePickerResult(success: Boolean) {
+        _pendingRingtoneSong.value = null
+        pendingRingtoneSongId.value = null
+        viewModelScope.launch {
+            if (success) {
+                _ringtoneToastMessage.emit("已设为铃声")
+            } else {
+                _ringtoneToastMessage.emit("设置铃声失败")
+            }
         }
     }
 
@@ -125,6 +149,7 @@ class MusicViewModel @Inject constructor(
         showRingtoneTypeDialog.value = false
         showRingtonePermissionDialog.value = false
         pendingRingtoneSongId.value = null
+        _pendingRingtoneSong.value = null
     }
 
     fun onShareClick(song: Song) {
