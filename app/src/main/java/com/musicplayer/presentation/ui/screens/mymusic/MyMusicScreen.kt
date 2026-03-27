@@ -258,6 +258,7 @@ fun MyMusicScreen(
                         onRemoveFromMusicClick = { song -> songToDelete = song },
                         onTogglePinArtist = { artist -> viewModel.togglePinArtist(artist) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
+                        onShareClick = { s -> viewModel.onShareClick(s) },
                         uiState = uiState,
                         listState = localMusicListState
                     )
@@ -271,6 +272,7 @@ fun MyMusicScreen(
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
+                        onShareClick = { s -> viewModel.onShareClick(s) },
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying,
                         listState = favoritesListState,
@@ -288,6 +290,7 @@ fun MyMusicScreen(
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onRemoveFromRecentClick = { songId -> viewModel.removeFromRecentPlays(songId) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
+                        onShareClick = { s -> viewModel.onShareClick(s) },
                         favoriteIds = uiState.favoriteSongIds,
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying,
@@ -426,6 +429,7 @@ fun LocalMusicTab(
     onRemoveFromMusicClick: (Song) -> Unit,
     onTogglePinArtist: (String) -> Unit,
     onSetRingtoneClick: (Long) -> Unit,
+    onShareClick: (Song) -> Unit,
     uiState: com.musicplayer.presentation.viewmodel.MusicUiState,
     listState: androidx.compose.foundation.lazy.LazyListState
 ) {
@@ -463,6 +467,7 @@ fun LocalMusicTab(
                             onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                             onRemoveFromMusicClick = { onRemoveFromMusicClick(song) },
                             onSetRingtoneClick = { onSetRingtoneClick(song.id) },
+                            onShareClick = onShareClick,
                             isFavorite = uiState.favoriteSongIds.contains(song.id),
                             isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
                             isCurrentlyPlaying = uiState.playbackState.isPlaying && uiState.playbackState.currentSong?.id == song.id
@@ -488,6 +493,7 @@ fun LocalMusicTab(
                             onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                             onRemoveFromMusicClick = { onRemoveFromMusicClick(song) },
                             onSetRingtoneClick = { onSetRingtoneClick(song.id) },
+                            onShareClick = onShareClick,
                             isFavorite = uiState.favoriteSongIds.contains(song.id),
                             isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
                             isCurrentlyPlaying = uiState.playbackState.isPlaying && uiState.playbackState.currentSong?.id == song.id
@@ -569,6 +575,7 @@ fun FavoritesTab(
     onFavoriteClick: (Long) -> Unit,
     onAddToPlaylistClick: (Long) -> Unit,
     onSetRingtoneClick: (Long) -> Unit,
+    onShareClick: (Song) -> Unit,
     currentPlayingSongId: Long?,
     isCurrentlyPlaying: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
@@ -597,6 +604,7 @@ fun FavoritesTab(
                     onFavoriteClick = { onFavoriteClick(song.id) },
                     onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                     onSetRingtoneClick = { onSetRingtoneClick(song.id) },
+                    onShareClick = onShareClick,
                     isFavorite = true,
                     isCurrentSong = currentPlayingSongId == song.id,
                     isCurrentlyPlaying = isCurrentlyPlaying && currentPlayingSongId == song.id
@@ -615,6 +623,7 @@ fun RecentlyPlayedTab(
     onAddToPlaylistClick: (Long) -> Unit,
     onRemoveFromRecentClick: (Long) -> Unit,
     onSetRingtoneClick: (Long) -> Unit,
+    onShareClick: (Song) -> Unit,
     favoriteIds: Set<Long> = emptySet(),
     currentPlayingSongId: Long?,
     isCurrentlyPlaying: Boolean,
@@ -646,6 +655,7 @@ fun RecentlyPlayedTab(
                     onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                     onRemoveFromRecentClick = { onRemoveFromRecentClick(song.id) },
                     onSetRingtoneClick = { onSetRingtoneClick(song.id) },
+                    onShareClick = onShareClick,
                     isFavorite = favoriteIds.contains(song.id),
                     isCurrentSong = currentPlayingSongId == song.id,
                     isCurrentlyPlaying = isCurrentlyPlaying && currentPlayingSongId == song.id
@@ -841,6 +851,7 @@ fun SongListItem(
     onRemoveFromRecentClick: (() -> Unit)? = null,
     onRemoveFromMusicClick: (() -> Unit)? = null,
     onSetRingtoneClick: (() -> Unit)? = null,
+    onShareClick: (Song) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -951,7 +962,10 @@ fun SongListItem(
                         )
                         DropdownMenuItem(
                             text = { Text("分享") },
-                            onClick = { showMenu = false },
+                            onClick = {
+                                showMenu = false
+                                onShareClick(song)
+                            },
                             leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
                         )
                         DropdownMenuItem(
