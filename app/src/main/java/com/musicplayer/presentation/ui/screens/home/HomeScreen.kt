@@ -163,7 +163,8 @@ fun HomeScreen(
                             viewModel.playSong(song)
                             onNavigateToPlayDetail()
                         },
-                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) }
+                        onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) },
+                        onShareClick = viewModel::onShareClick
                     )
                 }
             }
@@ -375,6 +376,7 @@ fun HotSongItem(
     rank: Int,
     onClick: () -> Unit,
     onSetRingtoneClick: (() -> Unit)? = null,
+    onShareClick: (Song) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -448,7 +450,10 @@ fun HotSongItem(
                 )
                 DropdownMenuItem(
                     text = { Text("分享") },
-                    onClick = { showMenu = false },
+                    onClick = {
+                        showMenu = false
+                        onShareClick(song)
+                    },
                     leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
                 )
                 if (onSetRingtoneClick != null) {
