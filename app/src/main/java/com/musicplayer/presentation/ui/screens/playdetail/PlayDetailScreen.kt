@@ -504,7 +504,7 @@ private fun QueueBottomSheet(
                             if (isCurrent) {
                                 Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
                             } else {
-                                Text("${index + 1}", modifier = Modifier.width(24.dp), textAlign = TextAlign.Center)
+                                Text("${index + 1}", modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
                             }
                         },
                         modifier = Modifier.clickable { onSongClick(song, index) }
