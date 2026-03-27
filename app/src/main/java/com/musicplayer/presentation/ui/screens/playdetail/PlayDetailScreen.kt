@@ -173,6 +173,10 @@ fun PlayDetailScreen(
                         )
                     }
 
+                    IconButton(onClick = { currentSong?.let { viewModel.onShareClick(it) } }) {
+                        Icon(Icons.Default.Share, contentDescription = "分享")
+                    }
+
                     Box {
                         IconButton(onClick = { showMoreMenu = true }) {
                             Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurface)
@@ -205,6 +209,14 @@ fun PlayDetailScreen(
                                         null
                                     )
                                 }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("分享") },
+                                onClick = {
+                                    showMoreMenu = false
+                                    currentSong?.let { viewModel.onShareClick(it) }
+                                },
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
                             )
                             DropdownMenuItem(
                                 text = { Text("设为铃声") },
