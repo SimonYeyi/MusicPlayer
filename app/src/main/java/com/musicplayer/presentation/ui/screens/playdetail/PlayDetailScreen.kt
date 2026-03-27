@@ -174,7 +174,7 @@ fun PlayDetailScreen(
                     }
 
                     IconButton(onClick = { currentSong?.let { viewModel.onShareClick(it) } }) {
-                        Icon(Icons.Default.Share, contentDescription = "分享")
+                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
                     }
 
                     Box {
