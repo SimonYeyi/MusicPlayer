@@ -90,6 +90,10 @@ class MusicViewModel @Inject constructor(
     private val _ringtoneToastMessage = MutableSharedFlow<String>()
     val ringtoneToastMessage: SharedFlow<String> = _ringtoneToastMessage.asSharedFlow()
 
+    // 分享事件
+    private val _shareSongEvent = MutableSharedFlow<Song>()
+    val shareSongEvent: SharedFlow<Song> = _shareSongEvent.asSharedFlow()
+
     fun onSetRingtoneClick(songId: Long) {
         if (RingtoneHelper.canWriteSettings(application)) {
             pendingRingtoneSongId.value = songId
@@ -121,6 +125,16 @@ class MusicViewModel @Inject constructor(
         showRingtoneTypeDialog.value = false
         showRingtonePermissionDialog.value = false
         pendingRingtoneSongId.value = null
+    }
+
+    fun onShareClick(song: Song) {
+        viewModelScope.launch {
+            if (song.uri != null) {
+                _shareSongEvent.emit(song)
+            } else {
+                _ringtoneToastMessage.emit("分享失败")
+            }
+        }
     }
 
     fun onGoToSettingsForRingtone() {
