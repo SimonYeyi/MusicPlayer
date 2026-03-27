@@ -258,7 +258,7 @@ fun MyMusicScreen(
                         onRemoveFromMusicClick = { song -> songToDelete = song },
                         onTogglePinArtist = { artist -> viewModel.togglePinArtist(artist) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
-                        onShareClick = { s -> viewModel.onShareClick(s) },
+                        onShareClick = viewModel::onShareClick,
                         uiState = uiState,
                         listState = localMusicListState
                     )
@@ -272,7 +272,7 @@ fun MyMusicScreen(
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
-                        onShareClick = { s -> viewModel.onShareClick(s) },
+                        onShareClick = viewModel::onShareClick,
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying,
                         listState = favoritesListState,
@@ -290,7 +290,7 @@ fun MyMusicScreen(
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onRemoveFromRecentClick = { songId -> viewModel.removeFromRecentPlays(songId) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
-                        onShareClick = { s -> viewModel.onShareClick(s) },
+                        onShareClick = viewModel::onShareClick,
                         favoriteIds = uiState.favoriteSongIds,
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying,
