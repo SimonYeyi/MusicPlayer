@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -504,10 +505,10 @@ private fun QueueBottomSheet(
                         supportingContent = { Text(song.artist, maxLines = 1) },
                         leadingContent = {
                             if (isCurrent) {
-                                Icon(
-                                    if (isPlaying) Icons.Default.Equalizer else Icons.Default.Pause,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary
+                                AnimatedEqualizer(
+                                    isPlaying = isPlaying,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
                                 )
                             } else {
                                 Text("${index + 1}", modifier = Modifier.wrapContentWidth(Alignment.CenterHorizontally))
@@ -516,6 +517,59 @@ private fun QueueBottomSheet(
                         modifier = Modifier.clickable { onSongClick(song, index) }
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 动态均衡器图标：播放时 3 根柱状条交替跳动，暂停时显示静态双竖线
+ */
+@Composable
+private fun AnimatedEqualizer(
+    isPlaying: Boolean,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    if (isPlaying) {
+        // 3 个柱状条，每根有独立的动画延迟
+        val infinite1 = rememberInfiniteTransition(label = "eq1")
+        val h1 by infinite1.animateFloat(0.2f, 1f, infiniteRepeatable(tween(400, 0, FastOutSlowInEasing), RepeatMode.Reverse), label = "eq1_h")
+        val infinite2 = rememberInfiniteTransition(label = "eq2")
+        val h2 by infinite2.animateFloat(0.2f, 1f, infiniteRepeatable(tween(400, 100, FastOutSlowInEasing), RepeatMode.Reverse), label = "eq2_h")
+        val infinite3 = rememberInfiniteTransition(label = "eq3")
+        val h3 by infinite3.animateFloat(0.2f, 1f, infiniteRepeatable(tween(400, 200, FastOutSlowInEasing), RepeatMode.Reverse), label = "eq3_h")
+
+        Row(
+            modifier = modifier.height(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            listOf(h1, h2, h3).forEach { h ->
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .fillMaxHeight(h)
+                        .clip(CircleShape)
+                        .background(tint)
+                )
+            }
+        }
+    } else {
+        // 暂停状态：显示双竖线
+        Row(
+            modifier = modifier.height(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(2) {
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(14.dp)
+                        .clip(CircleShape)
+                        .background(tint)
+                )
             }
         }
     }
