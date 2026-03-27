@@ -19,8 +19,7 @@ class DomainModelsTest {
         assertFalse(state.isPlaying)
         assertEquals(0L, state.currentPosition)
         assertEquals(0L, state.duration)
-        assertFalse(state.shuffleMode)
-        assertEquals(RepeatMode.OFF, state.repeatMode)
+        assertEquals(PlayMode.LIST_LOOP, state.playMode)
     }
 
     @Test
@@ -38,14 +37,15 @@ class DomainModelsTest {
         assertEquals(180000L, copied.duration)
     }
 
-    // ==================== RepeatMode Tests ====================
+    // ==================== PlayMode Tests ====================
 
     @Test
-    fun `RepeatMode 枚举值正确`() {
-        assertEquals(3, RepeatMode.entries.size)
-        assertNotNull(RepeatMode.OFF)
-        assertNotNull(RepeatMode.ONE)
-        assertNotNull(RepeatMode.ALL)
+    fun `PlayMode 枚举值正确`() {
+        assertEquals(4, PlayMode.entries.size)
+        assertNotNull(PlayMode.OFF)
+        assertNotNull(PlayMode.LIST_LOOP)
+        assertNotNull(PlayMode.SHUFFLE)
+        assertNotNull(PlayMode.ONE_LOOP)
     }
 
     // ==================== MoodTheme Tests ====================
