@@ -423,6 +423,7 @@ fun PlayDetailScreen(
             sheetState = sheetState,
             playlist = uiState.currentPlaylist,
             currentSongId = currentSong?.id,
+            isPlaying = playbackState.isPlaying,
             listState = queueListState,
             onDismiss = { showQueueSheet = false },
             onSongClick = { _, index ->
@@ -458,6 +459,7 @@ private fun QueueBottomSheet(
     sheetState: SheetState,
     playlist: List<Song>,
     currentSongId: Long?,
+    isPlaying: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onDismiss: () -> Unit,
     onSongClick: (Song, Int) -> Unit
@@ -502,9 +504,13 @@ private fun QueueBottomSheet(
                         supportingContent = { Text(song.artist, maxLines = 1) },
                         leadingContent = {
                             if (isCurrent) {
-                                Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(
+                                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             } else {
-                                Text("${index + 1}", modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
+                                Text("${index + 1}", modifier = Modifier.wrapContentWidth(Alignment.CenterHorizontally))
                             }
                         },
                         modifier = Modifier.clickable { onSongClick(song, index) }
