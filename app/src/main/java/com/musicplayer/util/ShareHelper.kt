@@ -14,11 +14,12 @@ object ShareHelper {
             type = "audio/*"
             putExtra(Intent.EXTRA_TEXT, "分享歌曲：${song.title} - ${song.artist}")
             putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
         return try {
-            context.startActivity(Intent.createChooser(intent, "分享歌曲"))
+            val chooserIntent = Intent.createChooser(intent, "分享歌曲")
+            chooserIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            context.startActivity(chooserIntent)
             true
         } catch (e: ActivityNotFoundException) {
             false
