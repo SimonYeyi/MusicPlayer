@@ -18,8 +18,10 @@ import org.junit.Test
 /**
  * MusicViewModel 相关测试
  *
- * 注意：由于 Uri 和 Song 是 Android 框架类，在纯 JVM 单元测试环境中
- * 无法直接实例化。此文件主要测试 MusicUiState 和逻辑分支。
+ * 注意：由于 Uri 是 Android 框架类，在纯 JVM 单元测试环境中
+ * 无法直接实例化。MusicUiState、PlaybackState 等纯 Kotlin 类的测试可以正常进行。
+ *
+ * 涉及 Uri 的测试（如 onShareClick）需要在 instrumented tests 或使用 Robolectric 的环境中进行。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MusicViewModelTest {
@@ -52,7 +54,6 @@ class MusicViewModelTest {
 
     @Test
     fun `MusicUiState copy 正常工作`() {
-        // 直接创建测试数据
         val playbackState = PlaybackState(
             currentSong = null,
             isPlaying = true,
@@ -61,7 +62,6 @@ class MusicViewModelTest {
             playMode = PlayMode.LIST_LOOP
         )
 
-        // 测试PlaybackState
         assertTrue(playbackState.isPlaying)
         assertEquals(50000L, playbackState.currentPosition)
         assertEquals(180000L, playbackState.duration)
@@ -84,7 +84,6 @@ class MusicViewModelTest {
 
     @Test
     fun `setTheme 更改当前主题`() {
-        // 测试主题切换逻辑
         var currentTheme = MoodTheme.CALM
         currentTheme = MoodTheme.HAPPY
         assertEquals(MoodTheme.HAPPY, currentTheme)
@@ -92,7 +91,6 @@ class MusicViewModelTest {
 
     @Test
     fun `toggleThemePicker 切换状态`() {
-        // 测试主题选择器状态切换
         var showThemePicker = false
         showThemePicker = !showThemePicker
         assertTrue(showThemePicker)
@@ -111,14 +109,12 @@ class MusicViewModelTest {
 
     @Test
     fun `search 过滤逻辑`() {
-        // 测试搜索过滤逻辑
         val songs = listOf(
             "Test Song",
             "Hello World",
             "Another Song"
         )
 
-        // 按标题搜索
         val filtered = songs.filter { it.contains("Test", ignoreCase = true) }
         assertEquals(1, filtered.size)
         assertEquals("Test Song", filtered[0])
@@ -145,13 +141,13 @@ class MusicViewModelTest {
     // ==================== onShareClick 逻辑测试 ====================
 
     /**
-     * 测试分享逻辑：当 URI 不为 null 时应该触发分享事件
-     * 由于 Uri 是 Android 框架类，这里使用 String? 模拟测试逻辑分支
+     * 测试分享逻辑分支：当 URI 不为 null 时应该触发分享事件
+     * 此测试验证逻辑分支，不涉及 Android 框架类
      */
     @Test
     fun `onShareClick logic with valid URI should emit event`() {
-        // 模拟 onShareClick 的条件判断逻辑 (Uri 替换为 String? 以避免 Android 框架依赖)
-        val uri: String? = "content://media/audio/1"
+        // 模拟 onShareClick 的条件判断逻辑
+        val uri: Any? = "content://media/audio/1" // 使用 Any? 模拟可能的 null 状态
         var shareEventEmitted = false
 
         if (uri != null) {
@@ -162,13 +158,12 @@ class MusicViewModelTest {
     }
 
     /**
-     * 测试分享逻辑：当 URI 为 null 时应该发送 Toast
-     * 由于 Uri 是 Android 框架类，这里使用 String? 模拟测试逻辑分支
+     * 测试分享逻辑分支：当 URI 为 null 时应该发送 Toast
+     * 此测试验证逻辑分支，不涉及 Android 框架类
      */
     @Test
     fun `onShareClick logic with null URI should emit toast`() {
-        // 模拟 onShareClick 的条件判断逻辑 (Uri 替换为 String? 以避免 Android 框架依赖)
-        val uri: String? = null
+        val uri: Any? = null
         var toastMessageEmitted: String? = null
 
         if (uri != null) {

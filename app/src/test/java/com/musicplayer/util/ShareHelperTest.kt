@@ -1,43 +1,41 @@
 package com.musicplayer.util
 
+import android.content.Context
+import com.musicplayer.domain.model.Song
+import io.mockk.mockk
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 
 /**
  * ShareHelper 单元测试
  *
  * 注意：ShareHelper.shareSong 依赖 Android 框架类 (Context, Intent, Uri 等)，
- * 在纯 JVM 单元测试环境中无法完整测试。此文件验证 ShareHelper 类的基本结构。
+ * 在纯 JVM 单元测试环境中无法完整测试。这些测试验证 ShareHelper 的方法签名
+ * 和基本结构完整性。
  *
  * 完整的 Android 框架测试需要在 instrumented tests 或使用 Robolectric 的环境中进行。
  */
 class ShareHelperTest {
 
-    /**
-     * 验证 ShareHelper 类存在
-     */
     @Test
     fun `ShareHelper class exists`() {
-        // Verify the ShareHelper class exists and can be referenced
         assertNotNull(ShareHelper::class)
     }
 
-    /**
-     * 验证 ShareHelper.shareSong 方法存在
-     */
     @Test
-    fun `ShareHelper shareSong method exists`() {
-        // 获取 ShareHelper.shareSong 方法引用，验证方法存在
-        val method = ShareHelper::class.java.getMethod("shareSong", android.content.Context::class.java, com.musicplayer.domain.model.Song::class.java)
+    fun `shareSong method exists and returns Boolean`() {
+        val method = ShareHelper::class.java.getMethod("shareSong", Context::class.java, Song::class.java)
         assertNotNull(method)
+        assertEquals(Boolean::class.java, method.returnType)
     }
 
-    /**
-     * 验证 ShareHelper.shareSong 方法返回 Boolean 类型
-     */
     @Test
-    fun `ShareHelper shareSong returns Boolean`() {
-        val method = ShareHelper::class.java.getMethod("shareSong", android.content.Context::class.java, com.musicplayer.domain.model.Song::class.java)
-        assertEquals(Boolean::class.java, method.returnType)
+    fun `shareSong method accepts Context and Song parameters`() {
+        val method = ShareHelper::class.java.getMethod("shareSong", Context::class.java, Song::class.java)
+        val parameterTypes = method.parameterTypes
+        assertEquals(2, parameterTypes.size)
+        assertEquals(Context::class.java, parameterTypes[0])
+        assertEquals(Song::class.java, parameterTypes[1])
     }
 }
