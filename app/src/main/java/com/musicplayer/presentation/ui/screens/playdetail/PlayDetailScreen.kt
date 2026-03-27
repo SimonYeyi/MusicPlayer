@@ -173,10 +173,6 @@ fun PlayDetailScreen(
                         )
                     }
 
-                    IconButton(onClick = { currentSong?.let { viewModel.onShareClick(it) } }) {
-                        Icon(Icons.Default.Share, contentDescription = stringResource(R.string.share))
-                    }
-
                     Box {
                         IconButton(onClick = { showMoreMenu = true }) {
                             Icon(Icons.Default.MoreVert, null, tint = MaterialTheme.colorScheme.onSurface)
