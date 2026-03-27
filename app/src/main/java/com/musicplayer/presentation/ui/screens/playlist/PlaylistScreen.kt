@@ -211,6 +211,7 @@ fun PlaylistScreen(
                             showMoveDialog = true
                         },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) },
+                        onShareClick = viewModel::onShareClick,
                         isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
                         isCurrentlyPlaying = uiState.playbackState.isPlaying && uiState.playbackState.currentSong?.id == song.id
                     )
@@ -367,6 +368,7 @@ fun PlaylistSongItem(
     onRemoveClick: () -> Unit,
     onMoveClick: (() -> Unit)? = null,
     onSetRingtoneClick: (() -> Unit)? = null,
+    onShareClick: (Song) -> Unit = {},
     isCurrentSong: Boolean = false,
     isCurrentlyPlaying: Boolean = false,
     modifier: Modifier = Modifier
@@ -488,6 +490,14 @@ fun PlaylistSongItem(
                                 onSetRingtoneClick?.invoke()
                             },
                             leadingIcon = { Icon(Icons.Default.RingVolume, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("分享") },
+                            onClick = {
+                                showMenu = false
+                                onShareClick(song)
+                            },
+                            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
                         )
                     }
 }
