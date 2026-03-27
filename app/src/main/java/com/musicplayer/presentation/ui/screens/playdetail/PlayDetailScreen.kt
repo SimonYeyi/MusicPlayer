@@ -70,24 +70,20 @@ fun PlayDetailScreen(
     var showSelectPlaylistDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // 播放队列滚动状态（始终在树中保持滚动位置）
+    // 播放队列滚动状态
     val queueListState = rememberLazyListState()
-    // 标记是否已滚动过（避免每次展开都滚动）
-    var hasScrolled by remember { mutableStateOf(false) }
 
-    // 首次展开时，将当前歌曲定位到列表可见区域的中间
+    // 展开时始终将当前歌曲居中定位
     LaunchedEffect(showQueueSheet, sheetState.currentValue, currentSong?.id, uiState.currentPlaylist) {
         if (showQueueSheet && sheetState.currentValue == SheetValue.Expanded
-            && !hasScrolled && currentSong?.id != null && uiState.currentPlaylist.isNotEmpty()) {
+            && currentSong?.id != null && uiState.currentPlaylist.isNotEmpty()) {
             val playlist = uiState.currentPlaylist
             val index = playlist.indexOfFirst { it.id == currentSong.id }
             if (index >= 0) {
                 // 当前歌曲显示在可见区域中间
-                // 高度420dp约5项可见，居中：上方2项当前歌曲在中间
                 val visibleHalf = 2
                 val targetIndex = (index - visibleHalf).coerceAtLeast(0)
                 queueListState.animateScrollToItem(targetIndex)
-                hasScrolled = true
             }
         }
     }
@@ -431,10 +427,6 @@ fun PlayDetailScreen(
             onDismiss = { showQueueSheet = false },
             onSongClick = { _, index ->
                 viewModel.playSongAtIndex(index)
-                scope.launch {
-                    sheetState.hide()
-                    showQueueSheet = false
-                }
             }
         )
     }
