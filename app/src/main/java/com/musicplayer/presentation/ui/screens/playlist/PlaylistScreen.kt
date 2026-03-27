@@ -484,20 +484,20 @@ fun PlaylistSongItem(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("设为铃声") },
-                            onClick = {
-                                showMenu = false
-                                onSetRingtoneClick?.invoke()
-                            },
-                            leadingIcon = { Icon(Icons.Default.RingVolume, contentDescription = null) }
-                        )
-                        DropdownMenuItem(
                             text = { Text("分享") },
                             onClick = {
                                 showMenu = false
                                 onShareClick(song)
                             },
                             leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("设为铃声") },
+                            onClick = {
+                                showMenu = false
+                                onSetRingtoneClick?.invoke()
+                            },
+                            leadingIcon = { Icon(Icons.Default.RingVolume, contentDescription = null) }
                         )
                     }
 }
