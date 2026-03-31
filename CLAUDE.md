@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> 项目概述、功能清单、页面详情、权限说明、架构设计、数据库结构、技术栈等详细信息详见 `README.md`。
+> 项目概述、功能清单、页面详情、权限说明、项目架构、数据库结构、技术栈等项目相关的信息详见 @README.md
 
 ## 构建命令
 

@@ -37,7 +37,7 @@
 - 将歌曲设为来电铃声、闹钟铃声、通知铃声
 
 ### 主题设置
-- 心情主题切换（Calm、Romantic、Energetic 等）
+- 心情主题切换
 
 ### 设置
 - 重新扫描音乐
@@ -50,7 +50,7 @@
 
 ```
 App
-└── 我的音乐（my_music）[主入口 Tab 页面]
+└── 我的音乐（my_music）[主入口]
     ├── 播放详情（play_detail）
     ├── 设置（settings）
     └── 歌单详情（playlist/{playlistId}/{playlistName}）
@@ -106,10 +106,7 @@ app/src/main/java/com/musicplayer/
 │   │   ├── PlaylistSongEntity.kt  # 歌单-歌曲关联实体
 │   │   ├── FavoriteEntity.kt      # 收藏实体
 │   │   ├── RecentPlayEntity.kt   # 最近播放实体
-│   │   ├── SongDao.kt
-│   │   ├── PlaylistDao.kt
-│   │   ├── FavoriteDao.kt
-│   │   └── RecentPlayDao.kt
+│   │   └── *Dao.kt
 │   └── repository/
 │       └── MusicRepository.kt     # 音乐仓储
 ├── di/
@@ -127,12 +124,6 @@ app/src/main/java/com/musicplayer/
 │   ├── ui/
 │   │   ├── MainActivity.kt
 │   │   ├── components/          # 通用组件
-│   │   │   ├── AlbumArt.kt
-│   │   │   ├── AlbumArtImage.kt
-│   │   │   ├── FormatUtils.kt
-│   │   │   ├── MiniPlayer.kt
-│   │   │   ├── MoodThemePicker.kt
-│   │   │   └── PlaylistPickerDialog.kt
 │   │   └── screens/
 │   │       ├── mymusic/
 │   │       │   └── MyMusicScreen.kt
@@ -143,7 +134,7 @@ app/src/main/java/com/musicplayer/
 │   │       └── settings/
 │   │           └── SettingsScreen.kt
 │   └── viewmodel/
-│       └── MusicViewModel.kt    # 主 ViewModel
+│       └── MusicViewModel.kt
 ├── service/
 │   └── MusicPlaybackService.kt  # 媒体播放服务
 └── util/
