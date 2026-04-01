@@ -257,6 +257,7 @@ fun MyMusicScreen(
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onRemoveFromMusicClick = { song -> songToDelete = song },
                         onTogglePinArtist = { artist -> viewModel.togglePinArtist(artist) },
+                        onInsertNextClick = { song -> viewModel.insertNext(song) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
                         onShareClick = viewModel::onShareClick,
                         uiState = uiState,
@@ -271,6 +272,7 @@ fun MyMusicScreen(
                         },
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
+                        onInsertNextClick = { song -> viewModel.insertNext(song) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
                         onShareClick = viewModel::onShareClick,
                         currentPlayingSongId = uiState.playbackState.currentSong?.id,
@@ -289,6 +291,7 @@ fun MyMusicScreen(
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         onAddToPlaylistClick = { songId -> songToAddToPlaylist = songId },
                         onRemoveFromRecentClick = { songId -> viewModel.removeFromRecentPlays(songId) },
+                        onInsertNextClick = { song -> viewModel.insertNext(song) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(it) },
                         onShareClick = viewModel::onShareClick,
                         favoriteIds = uiState.favoriteSongIds,
@@ -428,6 +431,7 @@ fun LocalMusicTab(
     onAddToPlaylistClick: (Long) -> Unit,
     onRemoveFromMusicClick: (Song) -> Unit,
     onTogglePinArtist: (String) -> Unit,
+    onInsertNextClick: (Song) -> Unit,
     onSetRingtoneClick: (Long) -> Unit,
     onShareClick: (Song) -> Unit,
     uiState: com.musicplayer.presentation.viewmodel.MusicUiState,
@@ -466,6 +470,7 @@ fun LocalMusicTab(
                             onFavoriteClick = { onFavoriteClick(song.id) },
                             onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                             onRemoveFromMusicClick = { onRemoveFromMusicClick(song) },
+                            onInsertNextClick = { onInsertNextClick(song) },
                             onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                             onShareClick = onShareClick,
                             isFavorite = uiState.favoriteSongIds.contains(song.id),
@@ -492,6 +497,7 @@ fun LocalMusicTab(
                             onFavoriteClick = { onFavoriteClick(song.id) },
                             onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                             onRemoveFromMusicClick = { onRemoveFromMusicClick(song) },
+                            onInsertNextClick = { onInsertNextClick(song) },
                             onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                             onShareClick = onShareClick,
                             isFavorite = uiState.favoriteSongIds.contains(song.id),
@@ -574,6 +580,7 @@ fun FavoritesTab(
     onSongClick: (Song) -> Unit,
     onFavoriteClick: (Long) -> Unit,
     onAddToPlaylistClick: (Long) -> Unit,
+    onInsertNextClick: (Song) -> Unit,
     onSetRingtoneClick: (Long) -> Unit,
     onShareClick: (Song) -> Unit,
     currentPlayingSongId: Long?,
@@ -603,6 +610,7 @@ fun FavoritesTab(
                     onClick = { onSongClick(song) },
                     onFavoriteClick = { onFavoriteClick(song.id) },
                     onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
+                    onInsertNextClick = { onInsertNextClick(song) },
                     onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                     onShareClick = onShareClick,
                     isFavorite = true,
@@ -622,6 +630,7 @@ fun RecentlyPlayedTab(
     onFavoriteClick: (Long) -> Unit,
     onAddToPlaylistClick: (Long) -> Unit,
     onRemoveFromRecentClick: (Long) -> Unit,
+    onInsertNextClick: (Song) -> Unit,
     onSetRingtoneClick: (Long) -> Unit,
     onShareClick: (Song) -> Unit,
     favoriteIds: Set<Long> = emptySet(),
@@ -654,6 +663,7 @@ fun RecentlyPlayedTab(
                     onFavoriteClick = { onFavoriteClick(song.id) },
                     onAddToPlaylistClick = { onAddToPlaylistClick(song.id) },
                     onRemoveFromRecentClick = { onRemoveFromRecentClick(song.id) },
+                    onInsertNextClick = { onInsertNextClick(song) },
                     onSetRingtoneClick = { onSetRingtoneClick(song.id) },
                     onShareClick = onShareClick,
                     isFavorite = favoriteIds.contains(song.id),
@@ -850,6 +860,7 @@ fun SongListItem(
     isCurrentlyPlaying: Boolean = false,
     onRemoveFromRecentClick: (() -> Unit)? = null,
     onRemoveFromMusicClick: (() -> Unit)? = null,
+    onInsertNextClick: (() -> Unit)? = null,
     onSetRingtoneClick: (() -> Unit)? = null,
     onShareClick: (Song) -> Unit = {},
     modifier: Modifier = Modifier
@@ -936,7 +947,10 @@ fun SongListItem(
                         }
                         DropdownMenuItem(
                             text = { Text("下一首播放") },
-                            onClick = { showMenu = false },
+                            onClick = {
+                                showMenu = false
+                                onInsertNextClick?.invoke()
+                            },
                             leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) }
                         )
                         DropdownMenuItem(

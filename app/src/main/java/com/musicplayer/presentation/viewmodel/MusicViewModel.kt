@@ -96,6 +96,10 @@ class MusicViewModel @Inject constructor(
     private val _shareSongEvent = MutableSharedFlow<Song>()
     val shareSongEvent: SharedFlow<Song> = _shareSongEvent.asSharedFlow()
 
+    // 插入下一首提示消息
+    private val _insertNextMessage = MutableSharedFlow<String>()
+    val insertNextMessage: SharedFlow<String> = _insertNextMessage.asSharedFlow()
+
     fun onSetRingtoneClick(songId: Long) {
         viewModelScope.launch {
             val song = musicRepository.getSongById(songId)
@@ -483,6 +487,26 @@ class MusicViewModel @Inject constructor(
 
     fun toggleRepeat() {
         musicService?.togglePlayMode()
+    }
+
+    /**
+     * 将歌曲插入到当前播放位置的下一首
+     */
+    fun insertNext(song: Song) {
+        musicService?.let { service ->
+            val currentSong = service.playbackState.value.currentSong
+            if (currentSong == null) {
+                // 没有正在播放的歌曲，直接播放
+                playSong(song)
+            } else if (currentSong.id == song.id) {
+                // 已是当前歌曲，不操作
+            } else {
+                service.insertNext(song)
+                viewModelScope.launch {
+                    _insertNextMessage.emit("已添加到下一首")
+                }
+            }
+        }
     }
 
     fun setTheme(theme: MoodTheme) {

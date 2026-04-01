@@ -163,6 +163,7 @@ fun HomeScreen(
                             viewModel.playSong(song)
                             onNavigateToPlayDetail()
                         },
+                        onInsertNextClick = { insertSong -> viewModel.insertNext(insertSong) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) },
                         onShareClick = viewModel::onShareClick
                     )
@@ -375,6 +376,7 @@ fun HotSongItem(
     song: Song,
     rank: Int,
     onClick: () -> Unit,
+    onInsertNextClick: ((Song) -> Unit)? = null,
     onSetRingtoneClick: (() -> Unit)? = null,
     onShareClick: (Song) -> Unit = {},
     modifier: Modifier = Modifier
@@ -435,7 +437,10 @@ fun HotSongItem(
             ) {
                 DropdownMenuItem(
                     text = { Text("下一首播放") },
-                    onClick = { showMenu = false },
+                    onClick = {
+                        showMenu = false
+                        onInsertNextClick?.invoke(song)
+                    },
                     leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) }
                 )
                 DropdownMenuItem(

@@ -210,6 +210,7 @@ fun PlaylistScreen(
                             isEditMode = true
                             showMoveDialog = true
                         },
+                        onInsertNextClick = { viewModel.insertNext(song) },
                         onSetRingtoneClick = { viewModel.onSetRingtoneClick(song.id) },
                         onShareClick = viewModel::onShareClick,
                         isCurrentSong = uiState.playbackState.currentSong?.id == song.id,
@@ -367,6 +368,7 @@ fun PlaylistSongItem(
     onFavoriteClick: () -> Unit,
     onRemoveClick: () -> Unit,
     onMoveClick: (() -> Unit)? = null,
+    onInsertNextClick: (() -> Unit)? = null,
     onSetRingtoneClick: (() -> Unit)? = null,
     onShareClick: (Song) -> Unit = {},
     isCurrentSong: Boolean = false,
@@ -467,7 +469,10 @@ fun PlaylistSongItem(
                         )
                         DropdownMenuItem(
                             text = { Text("下一首播放") },
-                            onClick = { showMenu = false },
+                            onClick = {
+                                showMenu = false
+                                onInsertNextClick?.invoke()
+                            },
                             leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) }
                         )
                         DropdownMenuItem(

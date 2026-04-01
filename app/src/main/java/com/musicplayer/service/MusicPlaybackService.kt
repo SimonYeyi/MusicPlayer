@@ -96,15 +96,25 @@ class MusicPlaybackService : Service() {
         }
         // 移除队列中当前位置之后该歌曲的旧出现，避免重复
         val insertPos = shuffleIndex + 1
+        var existingPos = -1
         for (i in insertPos until shuffleQueue.size) {
             if (shuffleQueue[i] == visualIndex) {
-                shuffleQueue.removeAt(i)
+                existingPos = i
                 break
             }
         }
-        // 在当前位置之后插入
-        shuffleQueue.add(insertPos, visualIndex)
-        shuffleIndex = insertPos
+        if (existingPos >= 0) {
+            // 歌曲已存在，如果位置在插入点之后才需要移动
+            if (existingPos > insertPos) {
+                shuffleQueue.removeAt(existingPos)
+                shuffleQueue.add(insertPos, visualIndex)
+            }
+        } else {
+            // 歌曲不在队列中，直接插入
+            shuffleQueue.add(insertPos, visualIndex)
+        }
+        // 注意：不更新 shuffleIndex，保持它仍指向当前歌曲
+        // playNext() 会递增 shuffleIndex，自然指向刚插入的歌曲
     }
 
     // 队尾追加：取可视队列中除当前歌曲外的歌曲，随机追加到随机队列
@@ -661,6 +671,130 @@ class MusicPlaybackService : Service() {
         // 切换到随机模式时，重新初始化随机队列
         if (playMode == PlayMode.SHUFFLE && previousMode != PlayMode.SHUFFLE) {
             initShuffleQueue(currentIndex)
+        }
+    }
+
+    /**
+     * 将歌曲插入到当前播放位置的下一首
+     * - 非随机模式：操作 _currentPlaylist
+     * - 随机模式：操作 shuffleQueue
+     * - 如果当前未在播放（暂停/停止），则立即播放该歌曲（currentIndex/shuffleIndex 保持不变）
+     */
+    fun insertNext(song: Song) {
+        val playlist = _currentPlaylist.value
+        if (playlist.isEmpty()) {
+            // 没有播放队列，直接播放
+            playSong(song)
+            return
+        }
+
+        val currentSong = _playbackState.value.currentSong
+        val isPlaying = _playbackState.value.isPlaying
+
+        // 如果是当前歌曲，不操作
+        if (currentSong != null && currentSong.id == song.id) {
+            return
+        }
+
+        if (playMode == PlayMode.SHUFFLE) {
+            // 随机模式：找到歌曲在可视队列中的位置
+            val visualIndex = playlist.indexOfFirst { it.id == song.id }
+            if (visualIndex >= 0) {
+                if (!isPlaying && currentSong != null) {
+                    // 暂停状态：插入队列并立即播放
+                    insertIntoShuffleQueueAndPlay(visualIndex, song)
+                } else {
+                    insertIntoShuffleQueue(visualIndex)
+                }
+            }
+        } else {
+            // 非随机模式
+            if (!isPlaying && currentSong != null) {
+                // 暂停状态：插入队列并立即播放
+                insertNextInternalAndPlay(song)
+            } else {
+                insertNextInternal(song)
+            }
+        }
+    }
+
+    /**
+     * 随机模式：插入到下一首并立即播放
+     */
+    private fun insertIntoShuffleQueueAndPlay(visualIndex: Int, song: Song) {
+        insertIntoShuffleQueue(visualIndex)
+        // 立即播放插入的歌曲，并更新 shuffleIndex 指向新插入歌曲的位置
+        // 这样下次 playNext 会播放可视队列中的下一首
+        shuffleIndex = shuffleQueue.indexOfFirst { it == visualIndex }
+        playSongInternal(song, quiet = isQuietMode)
+    }
+
+    /**
+     * 非随机模式：插入到下一首并立即播放
+     */
+    private fun insertNextInternalAndPlay(song: Song) {
+        val playlist = _currentPlaylist.value
+        val index = playlist.indexOfFirst { it.id == song.id }
+
+        if (index >= 0) {
+            // 歌曲已在队列中，先移除
+            val mutablePlaylist = _currentPlaylist.value.toMutableList()
+            mutablePlaylist.removeAt(index)
+
+            // 重新计算 currentIndex（如果移除位置在当前歌曲之前）
+            if (index < currentIndex) {
+                currentIndex--
+            }
+
+            // 插入到当前歌曲之后
+            val insertPosition = (currentIndex + 1).coerceAtMost(mutablePlaylist.size)
+            mutablePlaylist.add(insertPosition, song)
+            _currentPlaylist.value = mutablePlaylist
+
+            // 立即播放插入的歌曲（currentIndex 保持指向当前歌曲，所以 playNext 会播放插入的那首）
+            playSongInternal(song, quiet = isQuietMode)
+        } else {
+            // 歌曲不在队列中，直接插入到当前歌曲之后
+            val mutablePlaylist = _currentPlaylist.value.toMutableList()
+            val insertPosition = (currentIndex + 1).coerceAtMost(mutablePlaylist.size)
+            mutablePlaylist.add(insertPosition, song)
+            _currentPlaylist.value = mutablePlaylist
+
+            // 立即播放插入的歌曲
+            playSongInternal(song, quiet = isQuietMode)
+        }
+    }
+
+    /**
+     * 非随机模式：将歌曲插入到当前播放位置的下一首
+     * 注意：不更新 currentIndex，保持它指向当前播放的歌曲
+     */
+    private fun insertNextInternal(song: Song) {
+        val playlist = _currentPlaylist.value
+        val index = playlist.indexOfFirst { it.id == song.id }
+
+        if (index >= 0) {
+            // 歌曲已在队列中，先移除
+            val mutablePlaylist = _currentPlaylist.value.toMutableList()
+            mutablePlaylist.removeAt(index)
+
+            // 重新计算 currentIndex（如果移除位置在当前歌曲之前）
+            if (index < currentIndex) {
+                currentIndex--
+            }
+
+            // 插入到当前歌曲之后
+            val insertPosition = (currentIndex + 1).coerceAtMost(mutablePlaylist.size)
+            mutablePlaylist.add(insertPosition, song)
+            _currentPlaylist.value = mutablePlaylist
+            // 不更新 currentIndex，保持指向当前播放的歌曲
+        } else {
+            // 歌曲不在队列中，直接插入到当前歌曲之后
+            val mutablePlaylist = _currentPlaylist.value.toMutableList()
+            val insertPosition = (currentIndex + 1).coerceAtMost(mutablePlaylist.size)
+            mutablePlaylist.add(insertPosition, song)
+            _currentPlaylist.value = mutablePlaylist
+            // 不更新 currentIndex
         }
     }
 
