@@ -86,12 +86,7 @@ fun SettingsScreen(
                                 else -> Icons.Default.Repeat
                             },
                             title = "播放模式",
-                            subtitle = when (uiState.playbackState.playMode) {
-                                com.musicplayer.domain.model.PlayMode.OFF -> "关闭"
-                                com.musicplayer.domain.model.PlayMode.LIST_LOOP -> "列表循环"
-                                com.musicplayer.domain.model.PlayMode.SHUFFLE -> "随机播放"
-                                com.musicplayer.domain.model.PlayMode.ONE_LOOP -> "单曲循环"
-                            },
+                            subtitle = uiState.playbackState.playMode.displayName,
                             showArrow = false,
                             onClick = { viewModel.toggleShuffle() }
                         )

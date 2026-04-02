@@ -230,16 +230,16 @@ fun MyMusicScreen(
                 }
             }
 
-            // 构建与显示顺序一致的播放列表
-            val groupedSongs = filteredSongs.groupBy { it.artist }
-            val pinnedArtists = uiState.pinnedArtists.filter { groupedSongs.containsKey(it) }.toSet()
-            val unpinnedArtists = groupedSongs.keys.filter { !pinnedArtists.contains(it) }.sorted()
+            // 构建与显示顺序一致的播放列表（从全部歌曲而非搜索结果构建，保证播放队列完整）
+            val allSongsGrouped = uiState.songs.groupBy { it.artist }
+            val pinnedArtists = uiState.pinnedArtists.filter { allSongsGrouped.containsKey(it) }.toSet()
+            val unpinnedArtists = allSongsGrouped.keys.filter { !pinnedArtists.contains(it) }.sorted()
             val displayOrderSongs: List<Song> = buildList {
                 pinnedArtists.forEach { artist ->
-                    groupedSongs[artist]?.let { addAll(it) }
+                    allSongsGrouped[artist]?.let { addAll(it) }
                 }
                 unpinnedArtists.forEach { artist ->
-                    groupedSongs[artist]?.let { addAll(it) }
+                    allSongsGrouped[artist]?.let { addAll(it) }
                 }
             }
 

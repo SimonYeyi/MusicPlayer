@@ -8,13 +8,13 @@ data class PlaybackState(
     val playMode: PlayMode = PlayMode.LIST_LOOP
 )
 
-enum class PlayMode {
+enum class PlayMode(val displayName: String) {
     /** 关闭（播放完停止） */
-    OFF,
+    OFF("关闭"),
     /** 列表循环 */
-    LIST_LOOP,
+    LIST_LOOP("列表循环"),
     /** 随机播放 */
-    SHUFFLE,
+    SHUFFLE("随机播放"),
     /** 单曲循环 */
-    ONE_LOOP
+    ONE_LOOP("单曲循环")
 }
