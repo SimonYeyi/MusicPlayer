@@ -1,5 +1,6 @@
 package com.musicplayer.presentation.ui.screens.mymusic
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -74,6 +75,13 @@ fun MyMusicScreen(
     val searchFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
+
+    // 搜索状态时拦截返回键，先取消搜索
+    BackHandler(enabled = isSearchVisible) {
+        isSearchVisible = false
+        searchQuery = ""
+        keyboardController?.hide()
+    }
 
     val tabs = listOf(
         stringResource(R.string.local_music),
