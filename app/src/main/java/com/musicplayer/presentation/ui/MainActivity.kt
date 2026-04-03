@@ -3,7 +3,6 @@ package com.musicplayer.presentation.ui
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -48,15 +47,7 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private lateinit var sharedPreferences: SharedPreferences
     private var currentViewModel: MusicViewModel? = null
-
-    companion object {
-        private const val PREFS_NAME = "music_player_prefs"
-        private const val KEY_MUSIC_PERMISSION_REQUESTED = "music_permission_requested"
-        private const val KEY_NOTIFICATION_PERMISSION_REQUESTED = "notification_permission_requested"
-        private const val KEY_RETURNED_FROM_SETTINGS = "returned_from_settings"
-    }
 
     // 标记用户是否刚从设置页面返回
     private var returnedFromSettings = false
@@ -65,15 +56,10 @@ class MainActivity : ComponentActivity() {
     private val requestMusicPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // 标记已经请求过
-        sharedPreferences.edit().putBoolean(KEY_MUSIC_PERMISSION_REQUESTED, true).apply()
-
         val allGranted = permissions.values.all { it }
         if (allGranted) {
-            // 音乐权限已授予，继续检查通知权限
             checkAndRequestNotificationPermission()
         } else {
-            // 音乐权限被拒绝，退出app，下次打开继续申请
             finish()
         }
     }
@@ -82,14 +68,9 @@ class MainActivity : ComponentActivity() {
     private val requestNotificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        // 标记已经请求过
-        sharedPreferences.edit().putBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, true).apply()
-
         if (isGranted) {
-            // 通知权限已授予
             currentViewModel?.onPermissionGranted()
         } else {
-            // 通知权限被拒绝，退出app，下次打开继续申请
             finish()
         }
     }
@@ -130,9 +111,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         window.statusBarColor = Color.Black.copy(alpha = 0.02f).toArgb()
         window.navigationBarColor = Color.Black.copy(alpha = 0.02f).toArgb()
-
-        // 初始化SharedPreferences
-        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
         setContent {
             val viewModel: MusicViewModel = hiltViewModel()
@@ -363,73 +341,63 @@ class MainActivity : ComponentActivity() {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
-        // 检查音乐权限
         val allMusicGranted = musicPermissions.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
 
-        if (!allMusicGranted) {
-            // 检查是否已经请求过权限
-            val permissionRequested = sharedPreferences.getBoolean(KEY_MUSIC_PERMISSION_REQUESTED, false)
-
-            if (permissionRequested) {
-                // 已经请求过，检查是否永久拒绝
-                val shouldShowRationale = musicPermissions.any {
-                    shouldShowRequestPermissionRationale(it)
-                }
-                if (!shouldShowRationale) {
-                    // 永久拒绝，显示提示框
-                    currentViewModel?.onPermissionDenied()
-                    showPermissionDeniedDialog(
-                        "音乐权限",
-                        "需要授予存储和通知权限才能完整使用应用，请在设置中开启权限"
-                    )
-                    return
-                }
-            }
-            // 请求音乐权限
-            requestMusicPermissionLauncher.launch(musicPermissions)
+        if (allMusicGranted) {
+            checkAndRequestNotificationPermission()
             return
         }
 
-        // 音乐权限已授予，检查通知权限
-        checkAndRequestNotificationPermission()
+        // 未授予，检查是否永久拒绝（shouldShowRationale 返回 true = 永久拒绝）
+        val allPermanentlyDenied = musicPermissions.all {
+            shouldShowRequestPermissionRationale(it)
+        }
+        if (allPermanentlyDenied) {
+            currentViewModel?.onPermissionDenied()
+            showPermissionDeniedDialog(
+                "音乐权限",
+                "需要授予存储和通知权限才能完整使用应用，请在设置中开启权限"
+            )
+            return
+        }
+
+        // 可以继续申请（直接请求，让系统处理对话框）
+        requestMusicPermissionLauncher.launch(musicPermissions)
     }
 
     private fun checkAndRequestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val notificationGranted = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-
-            if (!notificationGranted) {
-                // 检查是否已经请求过权限
-                val permissionRequested = sharedPreferences.getBoolean(KEY_NOTIFICATION_PERMISSION_REQUESTED, false)
-
-                if (permissionRequested) {
-                    // 已经请求过，检查是否永久拒绝
-                    val shouldShowRationale = shouldShowRequestPermissionRationale(
-                        Manifest.permission.POST_NOTIFICATIONS
-                    )
-                    if (!shouldShowRationale) {
-                        // 永久拒绝，显示提示框
-                        currentViewModel?.onPermissionDenied()
-                        showPermissionDeniedDialog(
-                            "通知权限",
-                            "需要授予存储和通知权限才能完整使用应用，请在设置中开启权限"
-                        )
-                        return
-                    }
-                }
-                // 请求通知权限
-                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                return
-            }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            currentViewModel?.onPermissionGranted()
+            return
         }
 
-        // 所有权限都已授予
-        currentViewModel?.onPermissionGranted()
+        val notificationGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (notificationGranted) {
+            currentViewModel?.onPermissionGranted()
+            return
+        }
+
+        // 未授予，检查是否永久拒绝（shouldShowRationale 返回 true = 永久拒绝）
+        val permanentlyDenied = shouldShowRequestPermissionRationale(
+            Manifest.permission.POST_NOTIFICATIONS
+        )
+        if (permanentlyDenied) {
+            currentViewModel?.onPermissionDenied()
+            showPermissionDeniedDialog(
+                "通知权限",
+                "需要授予存储和通知权限才能完整使用应用，请在设置中开启权限"
+            )
+            return
+        }
+
+        // 可以继续申请
+        requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private fun showPermissionDeniedDialog(permissionName: String, message: String) {
