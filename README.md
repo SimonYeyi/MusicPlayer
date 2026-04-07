@@ -1,171 +1,144 @@
 # AI Music Player
 
-本地音乐播放器，支持音乐扫描、播放控制、歌单管理、收藏管理、最近播放、设为铃声等功能。
+本地音乐播放器，支持歌曲管理、歌单、收藏、播放历史、心情主题等功能。
 
 ## 功能清单
 
-### 音乐播放
-- 扫描本地音乐文件
-- 播放控制：播放、暂停、上一曲、下一曲
-- 进度拖拽
-- 播放模式切换：列表循环、随机播放、单曲循环、关闭
-- 播放队列管理
-- 专辑封面显示与旋转动画
-- 音频设备断开/重连自动暂停/恢复
+### 音乐管理
+- 扫描并加载本地音频文件
+- 按歌手分组展示歌曲
+- 歌手置顶功能
+- 歌曲搜索
+- 删除本地歌曲（可选同时删除文件）
+
+### 播放功能
+- 顺序播放、随机播放、单曲循环
+- 后台播放（前台服务）
+- 通知栏控制
+- 迷你播放器
+
+### 收藏与历史
+- 收藏歌曲
+- 最近播放记录
+- 播放历史管理
 
 ### 歌单管理
 - 创建、删除、重命名歌单
-- 添加歌曲到歌单
-- 从歌单移除歌曲
-- 批量移动歌曲到其他歌单
-- 歌单编辑模式（批量选择操作）
+- 添加/移除歌曲到歌单
+- 歌单内歌曲管理
 
-### 收藏管理
-- 收藏/取消收藏歌曲
-- 收藏列表展示
+### 铃声设置
+- 设置歌曲为来电铃声、闹钟铃声、通知铃声
 
-### 最近播放
-- 自动记录播放历史
-- 清除播放历史
-- 从最近播放移除歌曲
+### 主题
+- 心情主题切换（多种颜色主题）
 
-### 歌手置顶
-- 长按歌手名称置顶/取消置顶
-- 置顶歌手优先显示在列表顶部
+### 分享
+- 分享歌曲给其他应用
 
-### 设为铃声
-- 将歌曲设为来电铃声、闹钟铃声、通知铃声
-
-### 主题设置
-- 心情主题切换
-
-### 设置
-- 重新扫描音乐
-- 查看本地音乐数量
-- 跳转至收藏、最近播放
-
-## 页面详情
-
-### 页面层级关系与路由
+## 页面与路由
 
 ```
 App
-└── 我的音乐（my_music）[主入口]
-    ├── 播放详情（play_detail）
-    ├── 设置（settings）
-    └── 歌单详情（playlist/{playlistId}/{playlistName}）
+└── 我的音乐（/my_music）
+    ├── 本地音乐（Tab 0）
+    ├── 收藏（Tab 1）
+    ├── 最近播放（Tab 2）
+    └── 歌单（Tab 3）
+        └── 歌单详情（/playlist/{playlistId}/{playlistName}）
+    ├── 播放详情（/play_detail）
+    └── 设置（/settings）
 ```
-
-### 页面说明
-
-**我的音乐（my_music）**
-- 主入口页面，包含 4 个 Tab：本地音乐、收藏、最近播放、歌单
-- 支持搜索歌曲
-- 歌曲按歌手分组，支持置顶歌手
-
-**播放详情（play_detail）**
-- 全屏播放界面
-- 显示专辑封面（旋转动画）、歌曲名、艺术家
-- 进度条控制
-- 播放控制按钮
-- 播放队列（底部弹窗）
-
-**歌单详情（playlist/{playlistId}/{playlistName}）**
-- 显示歌单内歌曲列表
-- 支持编辑模式批量操作
-- 支持从歌单移动/移除歌曲
-
-**设置（settings）**
-- 主题设置
-- 播放模式切换
-- 音乐管理（重新扫描）
-- 播放历史入口
 
 ## 权限说明
 
 | 权限 | 作用 | 类型 |
 |------|------|------|
-| READ_EXTERNAL_STORAGE | 读取外部存储中的音乐文件 | 动态权限（maxSdkVersion=32） |
-| READ_MEDIA_AUDIO | 读取音频文件（Android 13+） | 动态权限 |
-| DELETE_PERMISSION | 删除音乐文件 | 系统权限 |
-| FOREGROUND_SERVICE | 前台服务运行 | 安装时授予 |
-| FOREGROUND_SERVICE_MEDIA_PLAYBACK | 前台媒体播放服务 | 安装时授予 |
-| POST_NOTIFICATIONS | 发送播放通知 | 动态权限 |
-| WAKE_LOCK | 保持 CPU 运行 | 安装时授予 |
-| WRITE_SETTINGS | 写入系统设置（设为铃声） | 特殊权限 |
+| READ_EXTERNAL_STORAGE | 读取存储中的音频文件（Android 12及以下） | 动态权限 |
+| READ_MEDIA_AUDIO | 读取存储中的音频文件（Android 13+） | 动态权限 |
+| POST_NOTIFICATIONS | 显示播放通知 | 动态权限（Android 13+） |
+| DELETE_PERMISSION | 删除音频文件 | 系统权限 |
+| FOREGROUND_SERVICE | 前台播放服务 | 声明权限 |
+| FOREGROUND_SERVICE_MEDIA_PLAYBACK | 媒体播放前台服务 | 声明权限 |
+| WAKE_LOCK | 防止播放时休眠 | 声明权限 |
+| WRITE_SETTINGS | 写入系统设置（铃声） | 系统权限 |
 
-## 项目架构
+## 架构概览
 
 ```
 app/src/main/java/com/musicplayer/
 ├── data/
-│   ├── local/              # 本地数据层
-│   │   ├── MusicDatabase.kt       # Room 数据库
-│   │   ├── SongEntity.kt          # 歌曲实体
-│   │   ├── PlaylistEntity.kt      # 歌单实体
-│   │   ├── PlaylistSongEntity.kt  # 歌单-歌曲关联实体
-│   │   ├── FavoriteEntity.kt      # 收藏实体
-│   │   ├── RecentPlayEntity.kt   # 最近播放实体
-│   │   └── *Dao.kt
-│   └── repository/
-│       └── MusicRepository.kt     # 音乐仓储
-├── di/
-│   └── AppModule.kt              # Hilt 依赖注入模块
+│   ├── local/          # Room 数据库（Entity、Dao）
+│   └── repository/    # 数据仓库
+├── di/                # Hilt 依赖注入模块
 ├── domain/
-│   └── model/
-│       ├── Song.kt               # 歌曲领域模型
-│       ├── PlaybackState.kt     # 播放状态
-│       ├── MoodTheme.kt          # 心情主题枚举
-│       └── PlayMode.kt          # 播放模式枚举
+│   └── model/         # 领域模型
 ├── presentation/
-│   ├── navigation/
-│   │   ├── Screen.kt            # 路由密封类
-│   │   └── MusicNavHost.kt     # 导航宿主
+│   ├── navigation/    # 导航配置
 │   ├── ui/
-│   │   ├── MainActivity.kt
-│   │   ├── components/          # 通用组件
-│   │   └── screens/
-│   │       ├── mymusic/
-│   │       │   └── MyMusicScreen.kt
-│   │       ├── playdetail/
-│   │       │   └── PlayDetailScreen.kt
-│   │       ├── playlist/
-│   │       │   └── PlaylistScreen.kt
-│   │       └── settings/
-│   │           └── SettingsScreen.kt
-│   └── viewmodel/
-│       └── MusicViewModel.kt
-├── service/
-│   └── MusicPlaybackService.kt  # 媒体播放服务
-└── util/
-    ├── RingtoneHelper.kt        # 铃声设置工具类
-    └── ShareHelper.kt           # 分享工具类
+│   │   ├── components/ # 可复用 UI 组件
+│   │   └── screens/   # 页面
+│   └── viewmodel/     # ViewModel
+├── service/           # 音乐播放服务
+└── util/              # 工具类
 ```
 
 ## 数据库结构
 
-### MusicDatabase
+### SongEntity（歌曲）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 歌曲ID（媒体库ID） |
+| title | String | 歌曲标题 |
+| artist | String | 艺术家 |
+| album | String | 专辑 |
+| duration | Long | 时长（毫秒） |
+| uri | String | 文件URI |
+| albumArtUri | String? | 专辑封面URI |
 
-| 表名 | 说明 | 核心字段 |
-|------|------|----------|
-| songs | 歌曲表 | id (PK), title, artist, album, duration, uri, albumArtUri |
-| playlists | 歌单表 | id (PK, auto), name, createdAt, songCount |
-| playlist_songs | 歌单-歌曲关联表 | playlistId, songId (复合 PK) |
-| favorites | 收藏表 | songId (PK) |
-| recent_plays | 最近播放表 | songId (PK), playedAt |
+### PlaylistEntity（歌单）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 歌单ID（自增） |
+| name | String | 歌单名称 |
+| createdAt | Long | 创建时间 |
+| songCount | Int | 歌曲数量 |
 
-## 技术栈
+### PlaylistSongEntity（歌单歌曲关联）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | ID（自增） |
+| playlistId | Long | 歌单ID |
+| songId | Long | 歌曲ID |
+| addedAt | Long | 添加时间 |
+
+### FavoriteEntity（收藏）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | ID（自增） |
+| songId | Long | 歌曲ID |
+| addedAt | Long | 收藏时间 |
+
+### RecentPlayEntity（最近播放）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | ID（自增） |
+| songId | Long | 歌曲ID |
+| playedAt | Long | 播放时间 |
+
+## 关键技术栈
 
 | 类别 | 技术 |
 |------|------|
+| 平台 | Android |
 | 语言 | Kotlin |
-| SDK | compileSdk=36, targetSdk=36, minSdk=24 |
-| UI | Jetpack Compose + Material3 |
+| UI框架 | Jetpack Compose |
+| 最低SDK | 24（Android 7.0） |
+| 目标SDK | 36 |
 | 架构 | MVVM + Clean Architecture |
 | 依赖注入 | Hilt |
 | 数据库 | Room |
-| 导航 | Jetpack Navigation Compose |
+| 导航 | Navigation Compose |
 | 图片加载 | Coil |
+| 媒体播放 | Media3 |
 | 异步 | Kotlin Coroutines + Flow |
-| 媒体播放 | MediaPlayer + MediaSession |
-| 测试 | JUnit, MockK, Turbine, Room Testing, Hilt Testing |
